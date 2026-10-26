@@ -1,22 +1,51 @@
-# Orbit (local)
-# note for priyansh 
-make it to work on the free llm api and enhance this project according to you 
+# Orbit
 
-Type a topic, get a short explainer film drawn live in code on a whiteboard.
-Method from https://github.com/lemomo-ai/lemo-opuscar (Whiteboard Explainer).
+Orbit turns a topic into a roughly five-minute whiteboard explainer film. Gemini plans the scenes, then the browser draws them stroke by stroke, moves a camera across the board, and adds spoken narration, pen sounds, and a light score. Films include playback controls, a scene storyboard, and WebM export.
 
-## Run it
-1. Install Node 18 or newer (https://nodejs.org).
-2. Get an Anthropic API key (https://console.anthropic.com) and set it:
-   - macOS / Linux:  export ANTHROPIC_API_KEY="sk-ant-..."
-   - Windows (PowerShell):  $env:ANTHROPIC_API_KEY="sk-ant-..."
-3. In this folder run:  node server.mjs
-4. Open http://localhost:8080
+## Run locally
 
-Optional: PORT=3000 to change the port, ORBIT_MODEL=<model id> to change the model.
+### Requirements
 
-## Notes
-- Opening index.html by double-click also works, but only the built-in sample film plays; writing new films needs the server.
-- The key stays on your machine; the server only forwards the film prompt to the Anthropic API. API use is billed to your key.
-- Fonts load from Google Fonts, so the handwriting look needs an internet connection.
-- "Save film" records a .webm in real time (pen sounds and score; browser voice narration is not recorded). Use Chrome or Edge.
+- Node.js 20 or newer
+- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
+- A modern browser such as Chrome or Edge
+
+### Setup
+
+1. Download or clone this repository, then open a terminal in the `orbit-local` folder.
+2. Copy `.env.example` to `.env`.
+
+   **Windows PowerShell:**
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+   **macOS / Linux:**
+
+   ```sh
+   cp .env.example .env
+   ```
+
+3. Open `.env` in a text editor and put your key after `GEMINI_API_KEY=`. Keep this file private; it is excluded from Git.
+4. Start the app:
+
+   ```sh
+   node server.mjs
+   ```
+
+5. Open the local address printed in the terminal. The default is `http://127.0.0.1:4173/`.
+
+No package installation is needed. The server uses Node's built-in modules. The sample film can play without an API key, but generating a new film needs one. Set `GEMINI_MODEL` in `.env` if you want to use a different Gemini model. Set `PORT` to choose a preferred port; if it is busy, Orbit tries the next one.
+
+## What to expect
+
+- The browser's built-in voice narrates the film during playback.
+- WebM export records the canvas and generated audio. Browser speech is not included in the saved video.
+- Fonts load from Google Fonts, so the hand-drawn type styling needs an internet connection.
+- The film drawing method is inspired by [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar). Its style catalog is included under `lemo-opuscar/styleboard/`.
+
+## Keep API keys safe
+
+Never paste an API key into `index.html`, commit `.env`, or share it publicly. The local server reads the key from `.env` and sends requests to Gemini; the key is not sent to browser code. If a key was exposed, revoke it in Google AI Studio and create a replacement.
+
