@@ -1,4 +1,6 @@
 # Orbit (local)
+# note for priyansh 
+make it to work on the free llm api and enhance this project according to you 
 
 Type a topic, get a short explainer film drawn live in code on a whiteboard.
 Method from https://github.com/lemomo-ai/lemo-opuscar (Whiteboard Explainer).
