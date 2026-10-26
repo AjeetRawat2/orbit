@@ -1,0 +1,952 @@
+<title>Orbit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Caveat:wght@500;700&family=Architects+Daughter&family=Kalam:wght@400;700&display=swap">
+<style>
+/* Layout: one studio column. Topic form on top, the whiteboard stage as the hero, transport under it, storyboard and director's notes below. */
+:root{
+  --bg:#eceff2; --panel:#ffffff; --fg:#171c22; --muted:#59636f; --line:#d3d8de;
+  --accent:#c4411f; --accent-fg:#ffffff; --blue:#2a5cb3; --chip:#e3e7eb; --ink:#23262c;
+  --f-display:'Bricolage Grotesque',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161b; --panel:#1b2128; --fg:#e8ecf0; --muted:#9aa5b1; --line:#2c353f;
+    --accent:#f0724f; --accent-fg:#1a0d08; --blue:#7ea5ea; --chip:#252d36; --ink:#dfe4ea; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161b; --panel:#1b2128; --fg:#e8ecf0; --muted:#9aa5b1; --line:#2c353f;
+  --accent:#f0724f; --accent-fg:#1a0d08; --blue:#7ea5ea; --chip:#252d36; --ink:#dfe4ea; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size:15px; line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:28px 40px;
+}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-direction:column;gap:6px}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(2rem,5vw,2.9rem);line-height:1.02;letter-spacing:-.025em;margin:0;text-wrap:balance}
+.tag{margin:0;color:var(--muted);max-width:62ch}
+.tag a,footer a{color:var(--blue)}
+form{display:flex;gap:10px;flex-wrap:wrap}
+.field{flex:1 1 260px;min-width:0;position:relative}
+input[type=text]{
+  width:100%;height:50px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);
+  font:500 17px var(--f-body);padding:0 14px;
+}
+input[type=text]::placeholder{color:var(--muted);font-weight:400}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,input[type=range]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.primary{height:50px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-fg);font-weight:600;padding:0 24px;font-size:16px}
+.primary[disabled]{opacity:.55;cursor:progress}
+.ghost{height:50px;border:1.5px solid var(--line);border-radius:8px;background:transparent;padding:0 18px;font-weight:500}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:0;background:var(--chip);border-radius:999px;padding:6px 14px;font-size:13.5px}
+.chip:hover{background:var(--line)}
+.status{min-height:22px;font:400 13px var(--f-mono);color:var(--muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar{flex:0 0 140px;height:4px;border-radius:2px;background:var(--line);overflow:hidden;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+.status.busy .bar{display:block}
+.stage{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#858c93;aspect-ratio:16/9;max-width:100%}
+.stage canvas{display:block;width:100%;height:100%}
+.transport{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tbtn{height:40px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);padding:0 14px;font-weight:500;font-size:14px}
+.tbtn[aria-pressed=false]{color:var(--muted);text-decoration:line-through}
+.tbtn.play{background:var(--fg);color:var(--bg);border-color:var(--fg);min-width:84px}
+.tbtn[disabled]{opacity:.5;cursor:not-allowed}
+.scrub{flex:1 1 200px;min-width:0;accent-color:var(--accent);height:40px}
+.time{font:500 13px var(--f-mono);color:var(--muted);min-width:86px;text-align:right;font-variant-numeric:tabular-nums}
+.lower{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:28px;margin-top:6px}
+@media (max-width:780px){.lower{grid-template-columns:minmax(0,1fr)}}
+h2{font-family:var(--f-display);font-size:1.15rem;margin:0 0 10px;letter-spacing:-.01em}
+ol.story{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+ol.story button{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;align-items:start}
+ol.story button[aria-current=true]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+ol.story .n{font:500 12px var(--f-mono);color:var(--muted);padding-top:3px}
+ol.story .tx{font-size:14px;overflow-wrap:anywhere}
+ol.story .meta{display:block;font:400 11.5px var(--f-mono);color:var(--muted);margin-top:2px}
+.notes{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.card p{margin:0 0 8px;overflow-wrap:anywhere}
+.card p:last-child{margin:0}
+.swatch{display:flex;align-items:center;gap:10px;font-size:13.5px;margin:5px 0}
+.swatch b{width:26px;height:6px;border-radius:3px;flex:0 0 26px}
+.facts{font:400 12.5px var(--f-mono);color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+.how{margin:0;padding-left:18px;color:var(--muted);font-size:13.5px}
+.how li{margin:3px 0}
+footer{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px;max-width:90ch}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Orbit</h1>
+    <p class="tag">Type a topic and Claude directs a short explainer film for it, drawn live in code on one dry-erase board: handwriting written stroke by stroke, a camera that travels across the board, narration and the sound of every pen stroke. Built on the Whiteboard Explainer method from <a href="https://github.com/lemomo-ai/lemo-opuscar" target="_blank" rel="noopener">Lemo-Opuscar</a>.</p>
+  </header>
+
+  <form id="f" autocomplete="off">
+    <div class="field"><input type="text" id="topic" maxlength="140" placeholder="How do vaccines train the immune system?" aria-label="Topic for the film"></div>
+    <button class="primary" id="go" type="submit">Draw the film</button>
+    <button class="ghost" id="stop" type="button" hidden>Stop</button>
+  </form>
+  <div class="chips" id="chips">
+    <button class="chip" type="button" data-topic="How does GPS know where I am?">How does GPS know where I am?</button>
+    <button class="chip" type="button" data-topic="Why does compound interest feel like magic?">Why does compound interest feel like magic?</button>
+    <button class="chip" type="button" data-topic="How does a vaccine train the immune system?">How does a vaccine train the immune system?</button>
+    <button class="chip" type="button" data-topic="Why do we have seasons?">Why do we have seasons?</button>
+    <button class="chip" type="button" data-topic="How does a refrigerator make things cold?">How does a refrigerator make things cold?</button>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"><span id="stxt">Sample film loaded. Press play, or type your own topic.</span><span class="bar"><i id="bari"></i></span></div>
+
+  <div class="stage"><canvas id="cv" width="1280" height="720" aria-label="Whiteboard film stage"></canvas></div>
+
+  <div class="transport">
+    <button class="tbtn play" id="play" type="button">Play</button>
+    <input class="scrub" id="scrub" type="range" min="0" max="1000" value="0" aria-label="Film position">
+    <span class="time" id="time">0:00 / 0:00</span>
+    <button class="tbtn" id="voice" type="button" aria-pressed="true">Voice</button>
+    <button class="tbtn" id="snd" type="button" aria-pressed="true">Sound</button>
+    <button class="tbtn" id="save" type="button" hidden>Save film</button>
+  </div>
+
+  <div class="lower">
+    <section>
+      <h2>Storyboard</h2>
+      <ol class="story" id="story"></ol>
+    </section>
+    <section class="notes">
+      <div class="card"><h2>Director's notes</h2><p id="logline"></p><div id="swatches"></div></div>
+      <div class="card"><h2>How the film is made</h2>
+        <ol class="how">
+          <li>Claude writes a treatment as scenes: one idea per scene, a hook, one turn, an ending that echoes the start.</li>
+          <li>The page turns each scene into hand-wobbled strokes. Every frame is a pure function of time, so you can scrub anywhere.</li>
+          <li>The camera travels across one large board. The last shot pulls back to show the whole lesson at once.</li>
+          <li>Pen sounds, a small score and the narration are generated live in your browser.</li>
+        </ol>
+        <p class="facts" id="facts" style="margin-top:10px"></p>
+      </div>
+    </section>
+  </div>
+
+  <footer>Method, guides and styles from <a href="https://github.com/lemomo-ai/lemo-opuscar" target="_blank" rel="noopener">lemomo-ai/lemo-opuscar</a> (code and docs MIT; demo films CC BY 4.0, credit LemoLab). This page draws its own films and uses none of the library's demo artwork. Narration uses your browser's built-in voices and is not part of a saved file.</footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+const W = 1280, H = 720;
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const layer = document.createElement('canvas'); layer.width = W; layer.height = H;
+const lx = layer.getContext('2d');
+const meas = document.createElement('canvas').getContext('2d');
+
+const COL = { ink: '#23262c', blue: '#2a5cb3', accent: '#d9482b' };
+const MEANING = { ink: 'things and structure', blue: 'signals, flows, measurements', accent: 'the one thing that matters' };
+const HAND = "'Caveat','Kalam',cursive";
+const SUBF = "'Architects Daughter','Kalam',sans-serif";
+
+/* ---------- helpers ---------- */
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, u) => a + (b - a) * u;
+const smooth = u => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+const easeStroke = u => { u = clamp(u, 0, 1); return u - Math.sin(2 * Math.PI * u) / (2 * Math.PI) * 0.8; };
+function mulberry(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hstr(s){ let h = 2166136261; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const isCJK = s => /[぀-ヿ㐀-鿿가-힯]/.test(s);
+function speechSecs(text){
+  if (!text) return 0;
+  const cjk = (text.match(/[぀-ヿ㐀-鿿가-힯]/g) || []).length;
+  const words = text.replace(/[぀-ヿ㐀-鿿가-힯]/g, ' ').split(/\s+/).filter(Boolean).length;
+  return cjk / 4.2 + words / 2.5;
+}
+
+/* ---------- shape geometry ---------- */
+const arcPts = (cx, cy, r, a0, a1, n = 26) => { const o = []; for (let i = 0; i <= n; i++){ const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; o.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return o; };
+const circ = (cx, cy, r) => arcPts(cx, cy, r, 0, 360, 30);
+const ICONS = {
+  sun: () => { const s = [circ(0, 0, .4)]; for (let k = 0; k < 8; k++){ const a = k * Math.PI / 4; s.push([[Math.cos(a) * .62, Math.sin(a) * .62], [Math.cos(a) * .95, Math.sin(a) * .95]]); } return s; },
+  cloud: () => [arcPts(-.42, .15, .3, 100, 260, 12), arcPts(-.02, -.1, .4, 190, 345, 14), arcPts(.42, .15, .28, 280, 450, 12), [[-.42, .45], [.42, .43]]],
+  drop: () => [[[0, -.9], ...arcPts(0, .3, .5, 210, -30, 26), [0, -.9]]],
+  person: () => [circ(0, -.65, .22), [[0, -.43], [0, .2]], [[-.45, -.2], [0, -.3], [.45, -.2]], [[-.3, .85], [0, .2], [.3, .85]]],
+  bulb: () => [arcPts(0, -.2, .5, 130, 410, 26), [[-.22, .42], [.22, .42]], [[-.17, .58], [.17, .58]]],
+  gear: () => { const s = [circ(0, 0, .4), circ(0, 0, .14)]; for (let k = 0; k < 8; k++){ const a = k * Math.PI / 4; s.push([[Math.cos(a) * .4, Math.sin(a) * .4], [Math.cos(a) * .64, Math.sin(a) * .64]]); } return s; },
+  star: () => { const p = []; for (let k = 0; k <= 10; k++){ const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? .38 : .9; p.push([Math.cos(a) * r, Math.sin(a) * r]); } return [p]; },
+  check: () => [[[-.6, 0], [-.2, .45], [.65, -.5]]],
+  eye: () => { const u = [], d = []; for (let i = 0; i <= 20; i++){ const x = -.85 + 1.7 * i / 20, y = .5 * (1 - (x / .85) ** 2); u.push([x, -y]); d.push([x, y]); } return [u, d, circ(0, 0, .22)]; },
+  house: () => [[[-.6, .6], [-.6, -.1], [0, -.7], [.6, -.1], [.6, .6], [-.6, .6]], [[-.15, .6], [-.15, .2], [.15, .2], [.15, .6]]],
+  tree: () => [[[0, .85], [0, .1]], circ(0, -.3, .55)],
+  heart: () => { const p = []; for (let i = 0; i <= 40; i++){ const t = i / 40 * Math.PI * 2; p.push([16 * Math.sin(t) ** 3 / 18, -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 18]); } return [p]; },
+  clock: () => [circ(0, 0, .8), [[0, 0], [0, -.5]], [[0, 0], [.35, .15]]],
+  magnifier: () => [circ(-.15, -.15, .5), [[.22, .22], [.8, .8]]],
+  lightning: () => [[[.2, -.9], [-.4, .1], [0, .1], [-.2, .9], [.45, -.2], [.05, -.2], [.2, -.9]]],
+  phone: () => [[[-.4, -.85], [.4, -.85], [.4, .85], [-.4, .85], [-.4, -.85]], [[-.12, .65], [.12, .65]], [[-.4, -.65], [.4, -.65]]],
+  globe: () => [circ(0, 0, .8), arcPts(0, 0, .8, 0, 360, 30).map(([x, y]) => [x * .4, y]), [[-.8, 0], [.8, 0]], [[-.7, -.4], [.7, -.4]], [[-.7, .4], [.7, .4]]]
+};
+
+function resample(pts, step){
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const L = cum[cum.length - 1];
+  if (L < 1) return [pts[0], pts[pts.length - 1]];
+  const n = Math.max(2, Math.round(L / step) + 1), out = []; let j = 1;
+  for (let k = 0; k < n; k++){
+    const s = L * k / (n - 1);
+    while (j < cum.length - 1 && cum[j] < s) j++;
+    const seg = (cum[j] - cum[j - 1]) || 1, u = (s - cum[j - 1]) / seg;
+    out.push([pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * u, pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * u]);
+  }
+  return out;
+}
+function wobble(pts, seed, amp){
+  const n = pts.length, out = [];
+  for (let i = 0; i < n; i++){
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    const taper = Math.min(1, i / 3, (n - 1 - i) / 3);
+    const o = (Math.sin(i * .09 + seed) * amp + Math.sin(i * .33 + seed * 1.7) * amp * .35) * taper;
+    out.push([pts[i][0] - ty * o, pts[i][1] + tx * o]);
+  }
+  return out;
+}
+function catmull(pts, seg = 12){
+  if (pts.length < 3) return pts;
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++){
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let k = 0; k < seg; k++){
+      const t = k / seg, t2 = t * t, t3 = t2 * t;
+      out.push([0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+                0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)]);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+function mkRuns(polys){
+  const runs = []; let total = 0; const bb = [1e9, 1e9, -1e9, -1e9];
+  for (const p of polys){
+    if (p.length < 2) continue;
+    const x = [], y = [], cum = [0];
+    for (let i = 0; i < p.length; i++){
+      x.push(p[i][0]); y.push(p[i][1]);
+      if (i) cum.push(cum[i - 1] + Math.hypot(x[i] - x[i - 1], y[i] - y[i - 1]));
+      bb[0] = Math.min(bb[0], p[i][0]); bb[1] = Math.min(bb[1], p[i][1]); bb[2] = Math.max(bb[2], p[i][0]); bb[3] = Math.max(bb[3], p[i][1]);
+    }
+    const len = cum[cum.length - 1];
+    if (len > 0.5){ runs.push({ x, y, cum, len }); total += len; }
+  }
+  const path = new Path2D();
+  for (const r of runs){ path.moveTo(r.x[0], r.y[0]); for (let i = 1; i < r.x.length; i++) path.lineTo(r.x[i], r.y[i]); }
+  return { runs, len: total, bb, path };
+}
+
+/* ---------- sanitising a script (Claude's JSON or the sample) ---------- */
+const TYPES = new Set(['text', 'line', 'arrow', 'dashed', 'circle', 'ellipse', 'rect', 'arc', 'polyline', 'curve', 'wave', 'icon', 'magnet', 'erase']);
+const num = (v, d, a, b) => { v = Number(v); return Number.isFinite(v) ? clamp(v, a, b) : d; };
+function cleanItem(it){
+  if (!it || typeof it !== 'object' || !TYPES.has(it.type)) return null;
+  const o = { type: it.type, color: COL[it.color] ? it.color : 'ink' };
+  const X = (v, d) => num(v, d, -40, 1640), Y = (v, d) => num(v, d, -40, 740);
+  switch (it.type){
+    case 'text': o.text = String(it.text ?? '').slice(0, 120); if (!o.text.trim()) return null; o.x = X(it.x, 100); o.y = Y(it.y, 100); o.size = num(it.size, 56, 28, 140); break;
+    case 'line': case 'arrow': case 'dashed': o.x1 = X(it.x1, 100); o.y1 = Y(it.y1, 100); o.x2 = X(it.x2, 400); o.y2 = Y(it.y2, 100); break;
+    case 'circle': o.x = X(it.x, 800); o.y = Y(it.y, 350); o.r = num(it.r, 80, 6, 500); break;
+    case 'ellipse': o.x = X(it.x, 800); o.y = Y(it.y, 350); o.rx = num(it.rx, 120, 6, 700); o.ry = num(it.ry, 70, 6, 500); break;
+    case 'rect': o.x = X(it.x, 100); o.y = Y(it.y, 100); o.w = num(it.w, 200, 6, 1600); o.h = num(it.h, 120, 6, 740); break;
+    case 'arc': o.x = X(it.x, 800); o.y = Y(it.y, 350); o.r = num(it.r, 200, 6, 800); o.from = num(it.from, 0, -720, 720); o.to = num(it.to, 180, -720, 720); break;
+    case 'polyline': case 'curve': {
+      const pts = Array.isArray(it.pts) ? it.pts.slice(0, 40).map(p => Array.isArray(p) ? [X(p[0], 0), Y(p[1], 0)] : null).filter(Boolean) : [];
+      if (pts.length < 2) return null; o.pts = pts; break; }
+    case 'wave': o.x1 = X(it.x1, 100); o.y1 = Y(it.y1, 300); o.x2 = X(it.x2, 700); o.y2 = Y(it.y2, 300); o.amp = num(it.amp, 18, 3, 70); o.cycles = num(it.cycles, 5, 1, 16); break;
+    case 'icon': o.name = ICONS[it.name] ? it.name : 'star'; o.x = X(it.x, 800); o.y = Y(it.y, 350); o.size = num(it.size, 140, 50, 340); break;
+    case 'magnet': o.x = X(it.x, 200); o.y = Y(it.y, 200); o.toX = X(it.toX ?? it.x, o.x); o.toY = Y(it.toY ?? it.y, o.y); break;
+    case 'erase': o.x = X(it.x, 100); o.y = Y(it.y, 100); o.w = num(it.w, 400, 40, 1700); o.h = num(it.h, 240, 40, 760); break;
+  }
+  return o;
+}
+function normalize(raw){
+  if (!raw || typeof raw !== 'object') return null;
+  const scenes = (Array.isArray(raw.scenes) ? raw.scenes : []).slice(0, 9).map(s => ({
+    narration: String(s?.narration ?? '').slice(0, 260),
+    silence: !!s?.silence,
+    items: (Array.isArray(s?.items) ? s.items : []).slice(0, 14).map(cleanItem).filter(Boolean)
+  })).filter(s => s.items.length);
+  if (scenes.length < 2) return null;
+  return {
+    title: String(raw.title || 'Untitled film').slice(0, 60),
+    lang: String(raw.lang || 'en').slice(0, 12),
+    logline: String(raw.logline || '').slice(0, 260),
+    closing: String(raw.closing || '').slice(0, 220),
+    scenes
+  };
+}
+
+/* ---------- building the film: scenes, ops, camera ---------- */
+let film = null;
+const CELLW = 1800, CELLH = 1000, COLS = 3;
+
+function textInfo(it){
+  const lines = String(it.text).split('\n').slice(0, 4);
+  meas.font = `700 ${it.size}px ${HAND}`;
+  const widths = lines.map(l => meas.measureText(l).width);
+  return { lines, widths, total: widths.reduce((a, b) => a + b, 0), size: it.size, lineH: it.size * 1.12, x: it.x, y: it.y };
+}
+function itemOp(it, ox, oy, seed){
+  const rnd = mulberry(seed), s0 = rnd() * 20;
+  const P = (x, y) => [x + ox, y + oy];
+  const op = { kind: 'stroke', color: it.color, w: 7, type: it.type };
+  let polys = [];
+  const prep = (pts, amp = 1.6) => wobble(resample(pts, 11), s0 + polys.length, amp);
+  switch (it.type){
+    case 'text': {
+      op.kind = 'text'; op.t = textInfo({ ...it, x: it.x + ox, y: it.y + oy }); op.len = op.t.total;
+      op.bb = [op.t.x, op.t.y, op.t.x + Math.max(...op.t.widths), op.t.y + op.t.lines.length * op.t.lineH];
+      op.weight = op.t.total * 1.1 + 70; return op; }
+    case 'line': case 'arrow': {
+      const a = P(it.x1, it.y1), b = P(it.x2, it.y2), L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
+      const e = [b[0] + ux * 4, b[1] + uy * 4];
+      polys.push(prep([a, e]));
+      if (it.type === 'arrow'){
+        const ang = Math.atan2(uy, ux), hl = 30;
+        polys.push([[b[0] - hl * Math.cos(ang - .45), b[1] - hl * Math.sin(ang - .45)], b, [b[0] - hl * Math.cos(ang + .45), b[1] - hl * Math.sin(ang + .45)]]);
+      }
+      break; }
+    case 'dashed': {
+      const a = P(it.x1, it.y1), b = P(it.x2, it.y2), L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      for (let d = 0; d < L; d += 40){ const d2 = Math.min(L, d + 22); polys.push([[a[0] + (b[0] - a[0]) * d / L, a[1] + (b[1] - a[1]) * d / L], [a[0] + (b[0] - a[0]) * d2 / L, a[1] + (b[1] - a[1]) * d2 / L]]); }
+      break; }
+    case 'circle': case 'ellipse': {
+      const rx = it.type === 'circle' ? it.r : it.rx, ry = it.type === 'circle' ? it.r : it.ry, a0 = rnd() * Math.PI * 2, n = Math.max(28, Math.round((rx + ry) / 5)), pts = [];
+      for (let i = 0; i <= n; i++){ const a = a0 + (Math.PI * 2 * 1.06) * i / n, j = 1 + .012 * Math.sin(a * 3 + s0); pts.push([it.x + ox + rx * j * Math.cos(a), it.y + oy + ry * j * Math.sin(a)]); }
+      polys.push(wobble(pts, s0, 1.2)); break; }
+    case 'rect': {
+      const x = it.x + ox, y = it.y + oy, w = it.w, h = it.h;
+      polys.push(prep([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y - 6]])); break; }
+    case 'arc': polys.push(wobble(arcPts(it.x + ox, it.y + oy, it.r, it.from, it.to, Math.max(24, Math.round(it.r / 6))), s0, 1.4)); break;
+    case 'polyline': polys.push(prep(it.pts.map(p => P(p[0], p[1])))); break;
+    case 'curve': polys.push(wobble(resample(catmull(it.pts.map(p => P(p[0], p[1]))), 9), s0, 1.4)); break;
+    case 'wave': {
+      const a = P(it.x1, it.y1), b = P(it.x2, it.y2), L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L, n = Math.max(40, Math.round(it.cycles * 18)), pts = [];
+      for (let i = 0; i <= n; i++){ const u = i / n, s = Math.sin(Math.PI * 2 * it.cycles * u) * it.amp; pts.push([a[0] + (b[0] - a[0]) * u + nx * s, a[1] + (b[1] - a[1]) * u + ny * s]); }
+      polys.push(pts); break; }
+    case 'icon': {
+      const sc = it.size / 2;
+      for (const st of ICONS[it.name]()) polys.push(prep(st.map(([x, y]) => [it.x + ox + x * sc, it.y + oy + y * sc]), 1.1));
+      break; }
+    case 'magnet': op.kind = 'magnet'; op.x0 = it.x + ox; op.y0 = it.y + oy; op.x1 = it.toX + ox; op.y1 = it.toY + oy; op.weight = 520; op.len = 0; op.bb = [Math.min(op.x0, op.x1) - 50, Math.min(op.y0, op.y1) - 50, Math.max(op.x0, op.x1) + 50, Math.max(op.y0, op.y1) + 50]; return op;
+    case 'erase': op.kind = 'erase'; op.x = it.x + ox; op.y = it.y + oy; op.w = it.w; op.h = it.h; op.weight = 760; op.len = 0; op.bb = [op.x, op.y, op.x + op.w, op.y + op.h]; return op;
+  }
+  const r = mkRuns(polys); if (!r.runs.length) return null; op.runs = r.runs; op.len = r.len; op.bb = r.bb; op.path = r.path; op.weight = r.len + 60; op.id = seed;
+  return op;
+}
+function schedule(ops, w0, w1){
+  if (!ops.length) return;
+  const gap = 0.1, avail = Math.max(1.0, w1 - w0 - gap * (ops.length - 1)), total = ops.reduce((a, o) => a + o.weight, 0);
+  let c = w0;
+  for (const o of ops){ const d = Math.max(0.2, avail * o.weight / total); o.t0 = c; o.t1 = c + d; c += d + gap; }
+}
+
+function buildFilm(spec){
+  const f = { spec, scenes: [], ops: [], DUR: 0 };
+  const n = spec.scenes.length + 1, rows = Math.ceil(n / COLS);
+  f.board = { x: 0, y: 0, w: COLS * CELLW, h: rows * CELLH };
+  const cellOrigin = i => ({ ox: (i % COLS) * CELLW + 100, oy: Math.floor(i / COLS) * CELLH + 80 });
+  const cellCam = i => { const o = cellOrigin(i); return { cx: o.ox + 800, cy: o.oy + 390, z: W / 1700 }; };
+  let t = 0;
+  // title scene
+  {
+    const o = cellOrigin(0), title = spec.title; let size = 150;
+    meas.font = `700 ${size}px ${HAND}`;
+    while (size > 60 && meas.measureText(title).width > 1480){ size -= 6; meas.font = `700 ${size}px ${HAND}`; }
+    const tw = meas.measureText(title).width, tx = (1600 - tw) / 2;
+    const items = [{ type: 'text', text: title, x: tx, y: 190, size, color: 'ink' }, { type: 'line', x1: tx, y1: 190 + size * 1.12 + 14, x2: tx + tw, y2: 190 + size * 1.12 + 14, color: 'accent' }];
+    if (spec.logline){ items.push({ type: 'text', text: spec.logline.length > 90 ? spec.logline.slice(0, 88).replace(/\s+\S*$/, '') + '…' : spec.logline, x: 120, y: 190 + size * 1.12 + 70, size: 44, color: 'blue' }); }
+    const ops = items.map((it, k) => itemOp(it, o.ox, o.oy, hstr(title) + k)).filter(Boolean);
+    const sc = { kind: 'title', start: 0, dur: 4.0, text: '', silence: false, cam: cellCam(0), camStart: 0, camEnd: 0, speakAt: 99 };
+    schedule(ops, 0.25, 3.4); f.ops.push(...ops); f.scenes.push(sc); t = sc.dur;
+  }
+  spec.scenes.forEach((s, i) => {
+    const o = cellOrigin(i + 1), lead = s.silence ? 1.8 : 0.6;
+    const dur = clamp(lead + speechSecs(s.narration) + 1.0, 4.4, 16);
+    const sc = { kind: 'scene', start: t, dur, text: s.narration, silence: s.silence, cam: cellCam(i + 1), camStart: t - 0.5, camEnd: t + 0.7, speakAt: t + lead, items: s.items.length };
+    const ops = s.items.map((it, k) => itemOp(it, o.ox, o.oy, hstr(spec.title) + (i + 1) * 131 + k * 17)).filter(Boolean);
+    schedule(ops, t + 0.4, t + dur - 0.7);
+    f.ops.push(...ops); f.scenes.push(sc); t += dur;
+  });
+  {
+    const bz = Math.min(W / (f.board.w + 420), H / (f.board.h + 520));
+    const dur = Math.max(5.2, speechSecs(spec.closing) + 2.2);
+    f.scenes.push({ kind: 'closing', start: t, dur, text: spec.closing, silence: false, cam: { cx: f.board.w / 2, cy: f.board.h / 2 + 90, z: bz }, camStart: t - 0.2, camEnd: t + 2.0, speakAt: t + 1.2 });
+    t += dur;
+  }
+  f.DUR = t;
+  f.ops.sort((a, b) => a.t0 - b.t0);
+  f.penOps = f.ops.filter(o => o.kind === 'stroke' || o.kind === 'text');
+  // ghost marks: faint remains of old lessons
+  const rnd = mulberry(hstr(spec.title) ^ 0x9e37), words = ['?', '→', '×2', 'why', 'ok', '≈', '∑', '1/2', '!', 'x²', '→ ←', 'so', '%'];
+  f.ghosts = [];
+  for (let k = 0; k < 90; k++){
+    const g = { x: rnd() * f.board.w, y: rnd() * f.board.h, r: (rnd() - .5) * .5, s: 40 + rnd() * 70, k: rnd() };
+    g.type = g.k < .55 ? 'text' : g.k < .8 ? 'circle' : 'arrow'; g.txt = words[Math.floor(rnd() * words.length)]; f.ghosts.push(g);
+  }
+  return f;
+}
+
+function camAt(t){
+  const S = film.scenes;
+  let i = 0;
+  for (let k = 1; k < S.length; k++) if (t >= S[k].camStart) i = k;
+  if (i === 0) return S[0].cam;
+  const a = S[i - 1].cam, b = S[i].cam;
+  const u = clamp((t - S[i].camStart) / (S[i].camEnd - S[i].camStart), 0, 1), e = smooth(u);
+  const dist = Math.hypot(a.cx - b.cx, a.cy - b.cy), pull = Math.min(.35, dist / 7000) * (S[i].kind === 'closing' ? 0 : 1);
+  const iz = lerp(1 / a.z, 1 / b.z, e) + pull * Math.sin(Math.PI * u);
+  return { cx: lerp(a.cx, b.cx, e), cy: lerp(a.cy, b.cy, e), z: 1 / iz };
+}
+const sceneAt = t => { let i = 0; for (let k = 0; k < film.scenes.length; k++) if (t >= film.scenes[k].start) i = k; return i; };
+
+/* ---------- drawing ---------- */
+function partialStroke(g, op, p){
+  const target = p * op.len; let acc = 0;
+  g.beginPath();
+  for (const r of op.runs){
+    if (acc >= target) break;
+    const need = target - acc;
+    g.moveTo(r.x[0], r.y[0]);
+    if (need >= r.len){ for (let i = 1; i < r.x.length; i++) g.lineTo(r.x[i], r.y[i]); acc += r.len; }
+    else {
+      let k = 1; while (k < r.cum.length - 1 && r.cum[k] < need) k++;
+      for (let i = 1; i < k; i++) g.lineTo(r.x[i], r.y[i]);
+      const seg = (r.cum[k] - r.cum[k - 1]) || 1, u = (need - r.cum[k - 1]) / seg;
+      g.lineTo(lerp(r.x[k - 1], r.x[k], u), lerp(r.y[k - 1], r.y[k], u)); acc = target;
+    }
+  }
+  g.stroke();
+}
+function tipAt(op, p){
+  if (op.kind === 'text'){
+    const T = op.t; let rev = clamp(p, 0, 1) * T.total;
+    for (let i = 0; i < T.lines.length; i++){
+      if (rev <= T.widths[i] || i === T.lines.length - 1){ const x = T.x + Math.min(rev, T.widths[i]); return [x, T.y + i * T.lineH + T.size * .62 + Math.sin(x * .05) * 3]; }
+      rev -= T.widths[i];
+    }
+  }
+  const target = clamp(p, 0, 1) * op.len; let acc = 0;
+  for (const r of op.runs){
+    if (target <= acc + r.len || r === op.runs[op.runs.length - 1]){
+      const need = clamp(target - acc, 0, r.len); let k = 1; while (k < r.cum.length - 1 && r.cum[k] < need) k++;
+      const seg = (r.cum[k] - r.cum[k - 1]) || 1, u = clamp((need - r.cum[k - 1]) / seg, 0, 1);
+      return [lerp(r.x[k - 1], r.x[k], u), lerp(r.y[k - 1], r.y[k], u)];
+    }
+    acc += r.len;
+  }
+  return [op.bb[0], op.bb[1]];
+}
+function drawText(g, op, p){
+  const T = op.t; let rev = p * T.total;
+  g.font = `700 ${T.size}px ${HAND}`; g.textBaseline = 'alphabetic'; g.fillStyle = COL[op.color];
+  for (let i = 0; i < T.lines.length; i++){
+    if (rev <= 0) break;
+    const base = T.y + i * T.lineH + T.size * .86, w = Math.min(rev, T.widths[i]);
+    if (w >= T.widths[i] - .5) g.fillText(T.lines[i], T.x, base);
+    else { g.save(); g.beginPath(); g.rect(T.x - 6, base - T.size * 1.05, w + 6, T.size * 1.5); g.clip(); g.fillText(T.lines[i], T.x, base); g.restore(); }
+    rev -= T.widths[i];
+  }
+}
+function eraseState(op, p){
+  const band = 90, R = Math.ceil(op.h / band), prog = p * R; const rects = []; let ex = op.x, ey = op.y + band / 2;
+  for (let r = 0; r < R; r++){
+    const frac = clamp(prog - r, 0, 1); if (frac <= 0) break;
+    const dir = r % 2 ? -1 : 1, x0 = dir > 0 ? op.x : op.x + op.w * (1 - frac);
+    rects.push([x0, op.y + r * band, op.w * frac, band + 2]);
+    ex = dir > 0 ? op.x + op.w * frac : op.x + op.w * (1 - frac); ey = op.y + r * band + band / 2;
+  }
+  return { rects, ex, ey };
+}
+function magnetPos(op, t){
+  const d = clamp((t - op.t0) / 0.3, 0, 1), m = smooth((t - op.t0 - 0.3) / Math.max(0.2, op.t1 - op.t0 - 0.3));
+  return { x: lerp(op.x0, op.x1, m), y: lerp(op.y0, op.y1, m), drop: 1 - d, lift: Math.sin(Math.PI * m) * .5 };
+}
+function drawMagnet(g, op, t){
+  const m = magnetPos(op, t), r = 34, y = m.y - m.drop * 40 - m.lift * 14;
+  g.save();
+  g.globalAlpha = .28 * (1 - m.drop * .4); g.fillStyle = '#000'; g.beginPath(); g.ellipse(m.x + 8 + m.lift * 14, m.y + 22 + m.lift * 14, r * (1 + m.drop * .5), r * .5, 0, 0, 7); g.fill();
+  g.globalAlpha = 1;
+  const gr = g.createRadialGradient(m.x - 10, y - 12, 4, m.x, y, r);
+  gr.addColorStop(0, '#fff'); gr.addColorStop(.25, COL[op.color]); gr.addColorStop(1, '#1d1f24');
+  g.fillStyle = gr; g.beginPath(); g.arc(m.x, y, r, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; g.beginPath(); g.arc(m.x - 8, y - 9, r * .55, Math.PI * 1.05, Math.PI * 1.55); g.stroke();
+  g.restore();
+}
+function drawEraserProp(g, ex, ey){
+  g.save(); g.translate(ex, ey); g.rotate(-.12);
+  g.fillStyle = 'rgba(0,0,0,.2)'; g.fillRect(-70 + 10, -32 + 16, 140, 66);
+  g.fillStyle = '#6b7f99'; g.fillRect(-70, -32, 140, 66); g.fillStyle = '#e7ecf2'; g.fillRect(-70, -32, 140, 28);
+  g.restore();
+}
+function penAt(t){
+  const P = film.penOps; let i = -1;
+  for (let k = 0; k < P.length; k++){ if (P[k].t0 <= t) i = k; else break; }
+  const cur = i >= 0 ? P[i] : null, next = P[i + 1] || null;
+  if (cur && t <= cur.t1){ const [x, y] = tipAt(cur, easeStroke((t - cur.t0) / (cur.t1 - cur.t0))); return { x, y, color: cur.color, lift: 0, park: 0 }; }
+  if (cur && next){
+    const gap = next.t0 - cur.t1;
+    if (gap < 0.75){
+      const u = clamp((t - cur.t1) / gap, 0, 1), e = smooth(u), a = tipAt(cur, 1), b = tipAt(next, 0);
+      return { x: lerp(a[0], b[0], e), y: lerp(a[1], b[1], e), color: u > .5 ? next.color : cur.color, lift: Math.sin(Math.PI * u) * .9, park: 0 };
+    }
+  }
+  if (cur && t - cur.t1 < 0.35){ const a = tipAt(cur, 1); return { x: a[0], y: a[1], color: cur.color, lift: 1, park: smooth((t - cur.t1) / 0.35) }; }
+  if (next && next.t0 - t < 0.42){ const b = tipAt(next, 0); return { x: b[0], y: b[1], color: next.color, lift: 1, park: 1 - smooth(1 - (next.t0 - t) / 0.42) }; }
+  return { x: 0, y: 0, color: 'ink', lift: 1, park: 1 };
+}
+function drawPen(sx, sy, color, lift, s){
+  ctx.save(); ctx.translate(sx, sy); ctx.scale(s, s);
+  ctx.save(); ctx.globalAlpha = .16 + .05 * lift; ctx.fillStyle = '#000'; ctx.translate(10 + lift * 34, 12 + lift * 46); ctx.rotate(.6);
+  ctx.beginPath(); ctx.roundRect(-13, -150, 26, 128, 8); ctx.fill(); ctx.restore();
+  ctx.translate(0, -lift * 26); ctx.rotate(.6);
+  ctx.fillStyle = '#f4f5f7'; ctx.strokeStyle = '#b9bec6'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(-13, -150, 26, 128, 8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = COL[color] || COL.ink; ctx.fillRect(-13, -92, 26, 26);
+  ctx.beginPath(); ctx.roundRect(-13, -172, 26, 30, 8); ctx.fill();
+  ctx.fillStyle = '#d3d6db'; ctx.beginPath(); ctx.moveTo(-8, -22); ctx.lineTo(8, -22); ctx.lineTo(3, 0); ctx.lineTo(-3, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = COL[color] || COL.ink; ctx.beginPath(); ctx.arc(0, 0, 3.2, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function wrapText(text, maxW){
+  const out = []; let line = '';
+  const tokens = isCJK(text) ? [...text] : text.split(/(\s+)/);
+  for (const tk of tokens){
+    const test = line + tk;
+    if (ctx.measureText(test).width > maxW && line.trim()){ out.push(line.trim()); line = tk.trimStart(); } else line = test;
+  }
+  if (line.trim()) out.push(line.trim());
+  return out.slice(0, 3);
+}
+function drawSubtitle(t){
+  const sc = film.scenes[sceneAt(t)];
+  if (!sc.text || t < sc.speakAt - 0.15 || t > sc.start + sc.dur - 0.1) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = `30px ${SUBF}`; ctx.textBaseline = 'middle';
+  const lines = wrapText(sc.text, 1000), lh = 42, bw = Math.min(1120, Math.max(...lines.map(l => ctx.measureText(l).width)) + 70), bh = lines.length * lh + 22;
+  const x = (W - bw) / 2, y = H - 26 - bh;
+  ctx.fillStyle = 'rgba(250,250,247,.92)'; ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 14); ctx.fill();
+  ctx.fillStyle = COL.accent; ctx.fillRect(x + 18, y + 14, 5, bh - 28);
+  ctx.fillStyle = '#23262c'; ctx.textAlign = 'center';
+  lines.forEach((l, i) => ctx.fillText(l, x + bw / 2 + 8, y + 11 + lh / 2 + i * lh));
+  ctx.textAlign = 'left';
+}
+
+function render(t){
+  const cam = camAt(t), z = cam.z, tx = W / 2 - cam.cx * z, ty = H / 2 - cam.cy * z;
+  const vx0 = cam.cx - W / 2 / z - 40, vx1 = cam.cx + W / 2 / z + 40, vy0 = cam.cy - H / 2 / z - 40, vy1 = cam.cy + H / 2 / z + 40;
+  const inView = bb => !(bb[2] < vx0 || bb[0] > vx1 || bb[3] < vy0 || bb[1] > vy1);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  let g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#9aa1a8'); g.addColorStop(1, '#818890'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.setTransform(z, 0, 0, z, tx, ty);
+  const B = film.board;
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 36; ctx.shadowOffsetY = 14;
+  g = ctx.createLinearGradient(0, B.y, 0, B.y + B.h); g.addColorStop(0, '#fdfdfb'); g.addColorStop(1, '#eff0ee'); ctx.fillStyle = g; ctx.fillRect(B.x, B.y, B.w, B.h); ctx.restore();
+  ctx.strokeStyle = '#b4bac1'; ctx.lineWidth = 44; ctx.strokeRect(B.x - 22, B.y - 22, B.w + 44, B.h + 44);
+  ctx.fillStyle = '#a3a9b1'; ctx.fillRect(B.x + B.w * .3, B.y + B.h + 22, B.w * .4, 60);
+  ['#23262c', '#2a5cb3', '#d9482b'].forEach((c, k) => { ctx.fillStyle = '#f2f3f5'; ctx.fillRect(B.x + B.w * .4 + k * 150, B.y + B.h + 24, 110, 24); ctx.fillStyle = c; ctx.fillRect(B.x + B.w * .4 + k * 150 + 80, B.y + B.h + 24, 18, 24); });
+  // ghosts
+  ctx.save(); ctx.globalAlpha = .08; ctx.strokeStyle = '#4b5b7a'; ctx.fillStyle = '#4b5b7a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  for (const gh of film.ghosts){
+    if (gh.x < vx0 - 200 || gh.x > vx1 || gh.y < vy0 - 100 || gh.y > vy1) continue;
+    ctx.save(); ctx.translate(gh.x, gh.y); ctx.rotate(gh.r);
+    if (gh.type === 'text'){ ctx.font = `700 ${gh.s}px ${HAND}`; ctx.fillText(gh.txt, 0, 0); }
+    else if (gh.type === 'circle'){ ctx.beginPath(); ctx.ellipse(0, 0, gh.s, gh.s * .8, 0, 0, 7); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(gh.s * 2, 0); ctx.moveTo(gh.s * 2 - 22, -14); ctx.lineTo(gh.s * 2, 0); ctx.lineTo(gh.s * 2 - 22, 14); ctx.stroke(); }
+    ctx.restore();
+  }
+  ctx.restore();
+  // ink layer
+  lx.setTransform(1, 0, 0, 1, 0, 0); lx.clearRect(0, 0, W, H);
+  lx.setTransform(z, 0, 0, z, tx, ty); lx.lineCap = 'round'; lx.lineJoin = 'round';
+  for (const op of film.ops){
+    if (op.t0 > t) break;
+    if (op.kind === 'magnet') continue;
+    if (!inView(op.bb)) continue;
+    const p = clamp((t - op.t0) / (op.t1 - op.t0), 0, 1);
+    if (op.kind === 'erase'){
+      const E = eraseState(op, easeStroke(p)); lx.save(); lx.globalCompositeOperation = 'destination-out'; lx.globalAlpha = .9;
+      for (const r of E.rects) lx.fillRect(r[0], r[1], r[2], r[3]); lx.restore(); continue;
+    }
+    const e = easeStroke(p); lx.globalAlpha = .94;
+    if (op.kind === 'text'){ drawText(lx, op, e); continue; }
+    lx.strokeStyle = COL[op.color]; lx.lineWidth = op.w;
+    if (e >= 1) lx.stroke(op.path); else partialStroke(lx, op, e);
+    lx.globalAlpha = .3; lx.fillStyle = COL[op.color]; lx.beginPath(); lx.arc(op.runs[0].x[0], op.runs[0].y[0], op.w * .8, 0, 7); lx.fill();
+  }
+  lx.globalAlpha = 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(layer, 0, 0); ctx.globalCompositeOperation = 'source-over';
+  // props in world space
+  ctx.setTransform(z, 0, 0, z, tx, ty);
+  for (const op of film.ops){
+    if (op.t0 > t) break;
+    if (op.kind === 'magnet') drawMagnet(ctx, op, t);
+    if (op.kind === 'erase' && t <= op.t1 + .1){ const E = eraseState(op, easeStroke(clamp((t - op.t0) / (op.t1 - op.t0), 0, 1))); if (t >= op.t0) drawEraserProp(ctx, E.ex, E.ey); }
+  }
+  // pen
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const pen = penAt(t), ps = clamp(z / .75, .55, 1.5) * .9;
+  const sx = lerp((pen.x - cam.cx) * z + W / 2, W + 50, pen.park), sy = lerp((pen.y - cam.cy) * z + H / 2, H + 150, pen.park);
+  if (pen.park < 1) drawPen(sx, sy, pen.color, pen.lift, ps);
+  // sheen
+  const span = W * 1.7, off = ((-cam.cx * z * .35) % span + span) % span - W * .4;
+  g = ctx.createLinearGradient(off, 0, off + 240, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,.13)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(off + 160, 0); ctx.lineTo(off + 400, 0); ctx.lineTo(off + 400 - 420, H); ctx.lineTo(off - 160 + 0, H); ctx.closePath(); ctx.fill();
+  drawSubtitle(t);
+}
+
+/* ---------- audio: pen on glossy board, foley, a small score ---------- */
+const AU = {
+  ac: null, master: null, nodes: [], noise: null, recDest: null,
+  ensure(){
+    if (!this.ac){
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return false;
+      this.ac = new C(); const b = this.ac.createBuffer(1, this.ac.sampleRate * 2, this.ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; this.noise = b;
+    }
+    if (this.ac.state === 'suspended') this.ac.resume();
+    return true;
+  },
+  stop(){
+    if (!this.master) return;
+    const m = this.master, ns = this.nodes, ac = this.ac;
+    try { m.gain.cancelScheduledValues(ac.currentTime); m.gain.setTargetAtTime(0, ac.currentTime, .015); } catch {}
+    setTimeout(() => { ns.forEach(n => { try { n.stop(); } catch {} }); try { m.disconnect(); } catch {} }, 120);
+    this.master = null; this.nodes = [];
+  },
+  start(from){
+    this.stop(); if (!state.sound || !this.ensure()) return;
+    const ac = this.ac, m = ac.createGain(), comp = ac.createDynamicsCompressor(); m.gain.value = 1; m.connect(comp); comp.connect(ac.destination); if (this.recDest) comp.connect(this.recDest);
+    this.master = m; this.nodes = [];
+    const base = ac.currentTime + .06 - from, at = t => base + t, keep = n => { this.nodes.push(n); return n; };
+    const noiseSrc = (t0, dur, off) => { const s = keep(ac.createBufferSource()); s.buffer = this.noise; s.loop = true; s.start(t0, off % 1.5); s.stop(t0 + dur + .05); return s; };
+    const pan = (x) => { if (!ac.createStereoPanner) return null; const p = ac.createStereoPanner(); p.pan.value = clamp(x, -.7, .7); return p; };
+    for (const op of film.penOps){
+      if (op.t1 <= from + .03) continue;
+      const t0 = Math.max(op.t0, from), dur = op.t1 - t0; if (dur < .06) continue;
+      const rnd = mulberry((op.id || 7) + Math.round(op.t0 * 100)), cam = camAt((op.t0 + op.t1) / 2), sx = ((op.bb[0] + op.bb[2]) / 2 - cam.cx) * cam.z / (W / 2);
+      const s = noiseSrc(at(t0), dur, rnd() * 1.5), bp = ac.createBiquadFilter(), g = ac.createGain(), pn = pan(sx);
+      bp.type = 'bandpass'; bp.frequency.value = 2600 + rnd() * 3200 + (op.color === 'accent' ? 400 : 0); bp.Q.value = .9;
+      const lvl = (.05 + .04 * rnd()) * clamp(cam.z / .75, .3, 1);
+      g.gain.setValueAtTime(0, at(t0)); g.gain.linearRampToValueAtTime(lvl, at(t0) + Math.min(.04, dur / 3)); g.gain.setValueAtTime(lvl, at(op.t1) - Math.min(.06, dur / 3)); g.gain.linearRampToValueAtTime(0, at(op.t1));
+      s.connect(bp); bp.connect(g); if (pn){ g.connect(pn); pn.connect(m); } else g.connect(m);
+      if (op.t0 >= from){ // nib tick
+        const k = noiseSrc(at(op.t0), .02, rnd() * 1.5), kb = ac.createBiquadFilter(), kg = ac.createGain(); kb.type = 'bandpass'; kb.frequency.value = 3800; kg.gain.setValueAtTime(.16, at(op.t0)); kg.gain.exponentialRampToValueAtTime(.001, at(op.t0) + .012); k.connect(kb); kb.connect(kg); kg.connect(m);
+      }
+      if (dur > .5 && rnd() < .28){ // dry-erase squeak
+        const o = keep(ac.createOscillator()), lfo = keep(ac.createOscillator()), lg = ac.createGain(), og = ac.createGain();
+        o.type = 'sine'; o.frequency.value = 1500 + rnd() * 1100; lfo.frequency.value = 7 + rnd() * 6; lg.gain.value = 36; lfo.connect(lg); lg.connect(o.frequency);
+        og.gain.setValueAtTime(0, at(t0)); og.gain.linearRampToValueAtTime(.013, at(t0 + dur * .3)); og.gain.linearRampToValueAtTime(0, at(op.t1)); o.connect(og); og.connect(m);
+        o.start(at(t0)); o.stop(at(op.t1) + .05); lfo.start(at(t0)); lfo.stop(at(op.t1) + .05);
+      }
+    }
+    for (const op of film.ops){
+      if (op.kind === 'magnet' && op.t0 + .3 >= from){
+        const tt = at(op.t0 + .3);
+        [830, 1370, 2210].forEach((f, i) => { const o = keep(ac.createOscillator()), g = ac.createGain(); o.frequency.value = f; g.gain.setValueAtTime(.05 / (i + 1), tt); g.gain.exponentialRampToValueAtTime(.0005, tt + .16); o.connect(g); g.connect(m); o.start(tt); o.stop(tt + .2); });
+        const th = keep(ac.createOscillator()), tg = ac.createGain(); th.frequency.value = 140; tg.gain.setValueAtTime(.12, tt); tg.gain.exponentialRampToValueAtTime(.001, tt + .12); th.connect(tg); tg.connect(m); th.start(tt); th.stop(tt + .15);
+      }
+      if (op.kind === 'erase' && op.t1 > from){
+        const t0 = Math.max(op.t0, from), d = op.t1 - t0; if (d > .1){ const s = noiseSrc(at(t0), d, 0), bp = ac.createBiquadFilter(), g = ac.createGain(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = .6; g.gain.setValueAtTime(.001, at(t0)); g.gain.linearRampToValueAtTime(.07, at(t0 + .1)); g.gain.setValueAtTime(.07, at(op.t1 - .1)); g.gain.linearRampToValueAtTime(0, at(op.t1)); s.connect(bp); bp.connect(g); g.connect(m); }
+      }
+    }
+    film.scenes.forEach((sc, i) => { // whoosh on every camera travel
+      if (i === 0 || sc.camStart < from) return;
+      const d = sc.camEnd - sc.camStart, s = noiseSrc(at(sc.camStart), d, 0), bp = ac.createBiquadFilter(), g = ac.createGain();
+      bp.type = 'bandpass'; bp.Q.value = .8; bp.frequency.setValueAtTime(380, at(sc.camStart)); bp.frequency.linearRampToValueAtTime(sc.kind === 'closing' ? 1800 : 1300, at(sc.camStart + d * .55)); bp.frequency.linearRampToValueAtTime(500, at(sc.camEnd));
+      g.gain.setValueAtTime(0, at(sc.camStart)); g.gain.linearRampToValueAtTime(.05, at(sc.camStart + d * .5)); g.gain.linearRampToValueAtTime(0, at(sc.camEnd)); s.connect(bp); bp.connect(g); g.connect(m);
+    });
+    // small score: marimba-like arpeggio, bass, woodblock; it drops out in scenes marked silent
+    const beat = 60 / 92, scale = [293.66, 329.63, 369.99, 440, 493.88, 587.33], pat = [0, 2, 4, 2, 3, 1, 4, 5], bass = [146.83, 110, 123.47, 98];
+    const tone = (f, t0, d, v, type) => { const o = keep(ac.createOscillator()), g = ac.createGain(); o.type = type; o.frequency.value = f; g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + .006); g.gain.exponentialRampToValueAtTime(.0004, t0 + d); o.connect(g); g.connect(m); o.start(t0); o.stop(t0 + d + .05); };
+    for (let b = Math.floor(from / beat); b * beat < film.DUR; b++){
+      const tb = b * beat; if (tb < from) continue;
+      const sc = film.scenes[sceneAt(tb)]; if (sc.silence) continue;
+      const gainK = sc.kind === 'title' ? .6 : 1;
+      [0, .5].forEach((h, k) => { const idx = pat[(b * 2 + k) % 8]; tone(scale[idx], at(tb + h * beat), .5, .032 * gainK, 'triangle'); tone(scale[idx] * 2, at(tb + h * beat), .22, .008 * gainK, 'sine'); });
+      if (b % 4 === 0) tone(bass[(b / 4 | 0) % 4], at(tb), 1.4, .06 * gainK, 'sine');
+      const wb = keep(ac.createOscillator()), wg = ac.createGain(); wb.type = 'square'; wb.frequency.value = 1500; wg.gain.setValueAtTime(.006, at(tb)); wg.gain.exponentialRampToValueAtTime(.0003, at(tb) + .03); wb.connect(wg); wg.connect(m); wb.start(at(tb)); wb.stop(at(tb) + .05);
+    }
+  }
+};
+
+/* ---------- narration ---------- */
+let spokenIdx = -1;
+function cancelSpeech(){ try { speechSynthesis.cancel(); } catch {} }
+function speak(text){
+  if (!state.voice || !('speechSynthesis' in window) || !text) return;
+  cancelSpeech();
+  const u = new SpeechSynthesisUtterance(text); u.lang = film.spec.lang || 'en'; u.rate = 1.02;
+  const vs = speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith(u.lang.toLowerCase().slice(0, 2)));
+  if (vs.length) u.voice = vs.find(v => v.localService) || vs[0];
+  speechSynthesis.speak(u);
+}
+
+/* ---------- player state and UI ---------- */
+const state = { t: 0, playing: false, voice: true, sound: true, dirty: true, last: 0, exporting: false };
+const ui = { play: $('play'), scrub: $('scrub'), time: $('time'), voice: $('voice'), snd: $('snd'), save: $('save'), story: $('story'), status: $('status'), stxt: $('stxt'), bari: $('bari') };
+function setStatus(msg, busy, pct){ ui.stxt.textContent = msg; ui.status.classList.toggle('busy', !!busy); ui.bari.style.width = (pct || 0) + '%'; }
+function seek(t, keepPlaying){
+  state.t = clamp(t, 0, film.DUR); state.dirty = true; spokenIdx = -1; cancelSpeech();
+  if (state.playing && keepPlaying !== false) AU.start(state.t); else AU.stop();
+}
+function play(){
+  if (state.t >= film.DUR - .05) state.t = 0;
+  state.playing = true; state.last = performance.now(); ui.play.textContent = 'Pause'; spokenIdx = -1; AU.start(state.t);
+}
+function pause(){ state.playing = false; ui.play.textContent = 'Play'; AU.stop(); cancelSpeech(); }
+function updateUI(){
+  ui.scrub.value = Math.round(state.t / film.DUR * 1000); ui.time.textContent = fmt(state.t) + ' / ' + fmt(film.DUR);
+  const i = sceneAt(state.t);
+  [...ui.story.children].forEach((li, k) => li.firstChild.setAttribute('aria-current', k === i ? 'true' : 'false'));
+}
+function loop(ts){
+  if (state.playing){
+    state.t += (ts - state.last) / 1000; state.dirty = true;
+    if (state.t >= film.DUR){ state.t = film.DUR; if (state.exporting) finishExport(); pause(); }
+    else if (state.voice && !state.exporting){
+      const i = sceneAt(state.t), sc = film.scenes[i];
+      if (i !== spokenIdx && sc.text){
+        if (state.t >= sc.speakAt){ spokenIdx = i; if (state.t < sc.speakAt + 1.2) speak(sc.text); }
+      } else if (i !== spokenIdx && !sc.text) spokenIdx = i;
+    }
+  }
+  state.last = ts;
+  if (state.dirty){ render(state.t); updateUI(); state.dirty = false; }
+  requestAnimationFrame(loop);
+}
+
+function renderPanels(){
+  const spec = film.spec; ui.story.innerHTML = '';
+  film.scenes.forEach((sc, i) => {
+    const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button';
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = String(i + 1).padStart(2, '0');
+    const tx = document.createElement('span'); tx.className = 'tx';
+    tx.textContent = sc.kind === 'title' ? 'Title: ' + spec.title : sc.kind === 'closing' ? (sc.text || 'Pull back: the whole board') : sc.text;
+    const meta = document.createElement('span'); meta.className = 'meta';
+    meta.textContent = fmt(sc.start) + ' · ' + (sc.kind === 'title' ? 'written on the board' : sc.kind === 'closing' ? 'camera pulls back to the full board' : (sc.items + ' drawings') + (sc.silence ? ' · the turn, music drops out' : ''));
+    tx.appendChild(meta); b.append(n, tx);
+    b.addEventListener('click', () => { seek(sc.start + (sc.kind === 'title' ? 0 : 0), true); if (!state.playing) play(); });
+    li.appendChild(b); ui.story.appendChild(li);
+  });
+  $('logline').textContent = spec.logline || '';
+  const sw = $('swatches'); sw.innerHTML = '';
+  Object.keys(COL).forEach(k => { const d = document.createElement('div'); d.className = 'swatch'; const b = document.createElement('b'); b.style.background = COL[k]; const s = document.createElement('span'); s.textContent = MEANING[k]; d.append(b, s); sw.appendChild(d); });
+  const moves = []; const kinds = new Set(film.ops.map(o => o.kind)); if (kinds.has('magnet')) moves.push('magnet'); if (kinds.has('erase')) moves.push('eraser');
+  $('facts').textContent = fmt(film.DUR) + ' long · ' + spec.scenes.length + ' scenes · ' + film.ops.length + ' drawn pieces' + (moves.length ? ' · ' + moves.join(' + ') : '') + ' · voice: ' + (spec.lang || 'en');
+}
+
+function loadSpec(spec, opts = {}){
+  pause();
+  film = buildFilm(spec); renderPanels();
+  state.t = 0; state.dirty = true; spokenIdx = -1;
+  if (opts.autoplay){ play(); }
+  else { const k = Math.min(3, film.scenes.length - 2), sc = film.scenes[k]; state.t = Math.min(film.DUR, sc.start + sc.dur - 0.45); state.dirty = true; }
+}
+
+/* ---------- the sample film (hand-written, in the same format Claude returns) ---------- */
+const SAMPLE = {
+  title: 'Why the sky is blue', lang: 'en',
+  logline: 'White sunlight, scattered by air, turns blue overhead and red at sunset.',
+  closing: 'Same sunlight, same air. Only the distance changes the colour.',
+  scenes: [
+    { narration: 'Look up. The sky is blue, not purple, not green. Why?', items: [
+      { type: 'line', x1: 120, y1: 620, x2: 1480, y2: 620, color: 'ink' },
+      { type: 'icon', name: 'person', x: 380, y: 515, size: 170, color: 'ink' },
+      { type: 'icon', name: 'sun', x: 1280, y: 170, size: 190, color: 'accent' },
+      { type: 'arrow', x1: 380, y1: 400, x2: 380, y2: 230, color: 'blue' },
+      { type: 'text', text: 'Why is the\nsky blue?', x: 540, y: 120, size: 125, color: 'blue' } ] },
+    { narration: 'Sunlight looks white, but it is every colour mixed together.', items: [
+      { type: 'icon', name: 'sun', x: 190, y: 330, size: 200, color: 'accent' },
+      { type: 'arrow', x1: 320, y1: 330, x2: 600, y2: 330, color: 'ink' },
+      { type: 'text', text: 'white light', x: 330, y: 385, size: 52, color: 'ink' },
+      { type: 'polyline', pts: [[600, 480], [760, 190], [920, 480], [600, 480]], color: 'ink' },
+      { type: 'arrow', x1: 880, y1: 300, x2: 1370, y2: 190, color: 'accent' },
+      { type: 'arrow', x1: 890, y1: 340, x2: 1370, y2: 340, color: 'ink' },
+      { type: 'arrow', x1: 880, y1: 385, x2: 1370, y2: 500, color: 'blue' },
+      { type: 'text', text: 'red', x: 1395, y: 150, size: 62, color: 'accent' },
+      { type: 'text', text: 'green', x: 1395, y: 300, size: 62, color: 'ink' },
+      { type: 'text', text: 'violet', x: 1395, y: 460, size: 62, color: 'blue' } ] },
+    { narration: 'Air is full of tiny molecules. Sunlight bumps into them and bounces off in every direction.', items: [
+      { type: 'wave', x1: 90, y1: 330, x2: 580, y2: 330, amp: 26, cycles: 5, color: 'blue' },
+      { type: 'circle', x: 680, y: 330, r: 62, color: 'ink' },
+      { type: 'text', text: 'air molecule', x: 590, y: 425, size: 50, color: 'ink' },
+      { type: 'arrow', x1: 740, y1: 295, x2: 1050, y2: 140, color: 'blue' },
+      { type: 'arrow', x1: 745, y1: 330, x2: 1100, y2: 330, color: 'blue' },
+      { type: 'arrow', x1: 740, y1: 368, x2: 1050, y2: 530, color: 'blue' },
+      { type: 'arrow', x1: 630, y1: 290, x2: 480, y2: 130, color: 'blue' },
+      { type: 'text', text: 'scattered', x: 1130, y: 285, size: 60, color: 'accent' } ] },
+    { narration: 'But short waves bounce far more than long ones. Blue scatters about ten times more than red.', silence: true, items: [
+      { type: 'wave', x1: 100, y1: 200, x2: 760, y2: 200, amp: 40, cycles: 3, color: 'ink' },
+      { type: 'text', text: 'red: long, slips through', x: 830, y: 160, size: 58, color: 'ink' },
+      { type: 'wave', x1: 100, y1: 400, x2: 760, y2: 400, amp: 24, cycles: 9, color: 'blue' },
+      { type: 'text', text: 'blue: short, bounces', x: 830, y: 360, size: 58, color: 'blue' },
+      { type: 'text', text: '≈ 10×', x: 520, y: 500, size: 150, color: 'accent' } ] },
+    { narration: 'So blue light is thrown around the whole sky, and some of it reaches your eyes from every direction.', items: [
+      { type: 'arc', x: 800, y: 660, r: 520, from: 180, to: 360, color: 'blue' },
+      { type: 'line', x1: 150, y1: 660, x2: 1450, y2: 660, color: 'ink' },
+      { type: 'icon', name: 'person', x: 800, y: 590, size: 120, color: 'ink' },
+      { type: 'arrow', x1: 440, y1: 330, x2: 735, y2: 545, color: 'blue' },
+      { type: 'arrow', x1: 800, y1: 200, x2: 800, y2: 490, color: 'blue' },
+      { type: 'arrow', x1: 1160, y1: 330, x2: 865, y2: 545, color: 'blue' },
+      { type: 'text', text: 'blue from everywhere', x: 540, y: 60, size: 66, color: 'accent' } ] },
+    { narration: 'At sunset the light crosses much more air. The blue is scattered away, and the red is what reaches you.', items: [
+      { type: 'line', x1: 100, y1: 620, x2: 1500, y2: 620, color: 'ink' },
+      { type: 'icon', name: 'person', x: 280, y: 530, size: 150, color: 'ink' },
+      { type: 'text', text: 'blue is scattered away', x: 380, y: 200, size: 64, color: 'blue' },
+      { type: 'text', text: 'long path through air', x: 400, y: 380, size: 54, color: 'ink' },
+      { type: 'wave', x1: 1230, y1: 545, x2: 390, y2: 520, amp: 14, cycles: 10, color: 'accent' },
+      { type: 'magnet', x: 1290, y: 170, toX: 1290, toY: 540, color: 'accent' } ] }
+  ]
+};
+
+/* ---------- generating a film with Claude ---------- */
+let sample = null, downloads = null, ctl = null, busy = false;
+const DIRECTOR_PROMPT = topic => `You are the director of a short explainer film that will be drawn live, in code, on one glossy dry-erase whiteboard. Style: "Whiteboard Explainer" from the Lemo-Opuscar film library: single-line handwriting written stroke by stroke, floating markers with no hands, magnets that can move, an eraser that can rewind, and a camera that travels across one big board between ideas.
+
+TOPIC: ${JSON.stringify(topic)}
+
+Return ONLY one JSON object. No prose, no code fences.
+
+DIRECTING RULES (from the library's DIRECTOR.md)
+- One subject, one goal, one turn. Open on ONE object the viewer owns or on one surprising number, never on a definition.
+- 6 to 8 scenes. Each scene is one drawing idea: one sentence, one drawing, the simplest geometry that carries it.
+- Put the surprise or twist in scene 4 or 5 and set "silence": true there (the music drops out and the narrator waits a beat).
+- The last scene echoes the first: return to the same object with a new meaning.
+- Narration: 1-2 short spoken sentences per scene, at most 26 words, plain and concrete, real numbers where you know them and only where you are sure. Write it in the language the topic is written in and set "lang" to its BCP-47 code (for example "en", "hi", "es").
+- Three marker colours with a fixed meaning for the whole film: "ink" = things and structure, "blue" = signals, flows, measurements, "accent" = the one thing that matters in that scene.
+- Never let items overlap. Keep at least 50px between them. Text must fit inside the area.
+
+CANVAS: each scene has its own area, 1600 wide by 700 high, origin top-left, y pointing down. Keep every coordinate inside it. Large and clear beats small and many: 5 to 10 items per scene.
+
+ITEMS, drawn in array order (every field shown is required for that type):
+{"type":"text","text":"...","x":0,"y":0,"size":56,"color":"ink"}   // x,y = top-left, size 40-125, use "\\n" for line breaks, at most 22 characters per line
+{"type":"line","x1":0,"y1":0,"x2":0,"y2":0,"color":"ink"}   // also "arrow" and "dashed"
+{"type":"circle","x":0,"y":0,"r":60,"color":"ink"}   // x,y = centre
+{"type":"ellipse","x":0,"y":0,"rx":120,"ry":60,"color":"ink"}
+{"type":"rect","x":0,"y":0,"w":200,"h":120,"color":"ink"}   // x,y = top-left
+{"type":"arc","x":0,"y":0,"r":200,"from":180,"to":360,"color":"ink"}   // degrees, clockwise, 0 = right, 90 = down, 270 = up
+{"type":"polyline","pts":[[0,0],[100,50]],"color":"ink"}   // also "curve" for a smooth line through 3-12 points
+{"type":"wave","x1":0,"y1":0,"x2":600,"y2":0,"amp":20,"cycles":5,"color":"blue"}   // light, sound, signals
+{"type":"icon","name":"sun","x":0,"y":0,"size":150,"color":"accent"}   // x,y = centre; names: sun cloud drop person bulb gear star check eye house tree heart clock magnifier lightning phone globe
+{"type":"magnet","x":0,"y":0,"toX":0,"toY":0,"color":"accent"}   // the only thing that moves: a glossy magnet dropped at x,y that slides to toX,toY. Use it for the hero (a truck, a cell, a coin, a sun)
+{"type":"erase","x":0,"y":0,"w":400,"h":240}   // the eraser wipes that region; use at most once, for an undo or "what if", then redraw
+The first item of each scene should be the thing being talked about; labels come after it.
+
+OUTPUT SHAPE
+{"title":"at most 5 words","lang":"en","logline":"one sentence arc, at most 20 words","scenes":[{"narration":"...","silence":false,"items":[...]}],"closing":"one sentence spoken while the camera pulls back to show the whole board"}`;
+
+function tryParse(text){
+  if (!text) return null;
+  let s = String(text).replace(/```(?:json)?/g, '').trim(); const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b < a) return null;
+  try { return JSON.parse(s.slice(a, b + 1)); } catch { return null; }
+}
+const ERR = {
+  not_granted: 'Claude access was declined for this page, so films cannot be generated. The sample film still plays.',
+  rate_limited: 'Too many requests at once. Wait a few seconds and try again.',
+  cancelled: 'Stopped.',
+  invalid_json: 'Claude\'s reply was cut off or malformed. Try a narrower topic.',
+};
+async function generate(topic){
+  if (busy) return;
+  topic = topic.trim(); if (!topic){ $('topic').focus(); setStatus('Type a topic first, or pick one below the box.'); return; }
+  if (!sample){ setStatus('Writing a film needs Claude, which is not available in this view. The sample film still plays.'); return; }
+  busy = true; $('go').disabled = true; $('stop').hidden = false; pause();
+  ctl = new AbortController(); setStatus('Thinking: planning the scenes…', true, 4);
+  try {
+    let n = 0;
+    const raw = await sample.json(DIRECTOR_PROMPT(topic), {
+      signal: ctl.signal, cache: false, modelTier: 'default',
+      onText: ({ text }) => { n = text.length; setStatus('Writing the film… ' + n + ' characters', true, Math.min(95, 8 + n / 60)); }
+    });
+    const spec = normalize(raw);
+    if (!spec) throw { code: 'invalid_json' };
+    loadSpec(spec, { autoplay: true });
+    setStatus('Drawing "' + spec.title + '" · ' + spec.scenes.length + ' scenes');
+  } catch (e) {
+    const partial = e && e.text ? normalize(tryParse(e.text)) : null;
+    if (partial && e.code === 'invalid_json'){ loadSpec(partial, { autoplay: true }); setStatus('Reply was cut short; playing the scenes that arrived.'); }
+    else setStatus(ERR[e && e.code] || ('Could not write the film' + (e && e.message ? ': ' + e.message : '.')));
+  } finally { busy = false; $('go').disabled = false; $('stop').hidden = true; ui.status.classList.remove('busy'); ctl = null; }
+}
+
+/* ---------- saving the film as a video (pen sounds and score, no narration) ---------- */
+let recorder = null, chunks = [];
+function canRecord(){ return !!(downloads && window.MediaRecorder && cv.captureStream && (window.AudioContext || window.webkitAudioContext)); }
+function startExport(){
+  if (!canRecord() || state.exporting) return;
+  pause(); AU.ensure();
+  const dest = AU.ac.createMediaStreamDestination(); AU.recDest = dest;
+  const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+  const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m));
+  try { recorder = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 5e6 } : undefined); } catch { setStatus('This browser cannot record the film.'); AU.recDest = null; return; }
+  chunks = []; recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = async () => {
+    AU.recDest = null; state.exporting = false; ui.save.disabled = false; ui.save.textContent = 'Save film';
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const name = (film.spec.title || 'film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'film';
+    try { await downloads.save({ filename: name + '.webm', data: blob }); setStatus('Film saved.'); }
+    catch (e) { setStatus(e && e.code === 'declined' ? 'Save cancelled.' : 'Saving is not available here.'); }
+  };
+  state.exporting = true; ui.save.disabled = true; ui.save.textContent = 'Recording…';
+  setStatus('Recording in real time (' + fmt(film.DUR) + '). Keep this tab open.');
+  state.t = 0; state.dirty = true; recorder.start(500); play();
+}
+function finishExport(){ try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {} }
+
+/* ---------- wiring ---------- */
+$('f').addEventListener('submit', e => { e.preventDefault(); generate($('topic').value); });
+$('stop').addEventListener('click', () => ctl && ctl.abort());
+$('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; $('topic').value = b.dataset.topic; generate(b.dataset.topic); });
+ui.play.addEventListener('click', () => state.playing ? pause() : play());
+ui.scrub.addEventListener('input', () => seek(ui.scrub.value / 1000 * film.DUR));
+ui.voice.addEventListener('click', () => { state.voice = !state.voice; ui.voice.setAttribute('aria-pressed', state.voice); if (!state.voice) cancelSpeech(); else spokenIdx = -1; });
+ui.snd.addEventListener('click', () => { state.sound = !state.sound; ui.snd.setAttribute('aria-pressed', state.sound); if (state.playing) AU.start(state.t); else AU.stop(); });
+ui.save.addEventListener('click', startExport);
+document.addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)){ e.preventDefault(); state.playing ? pause() : play(); } });
+
+(async () => {
+  loadSpec(normalize(SAMPLE));
+  const f1 = document.fonts.load(`700 40px ${HAND}`), f2 = document.fonts.load(`30px ${SUBF}`);
+  await Promise.race([Promise.all([f1, f2]).catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
+  const wasT = state.t, was = state.playing; if (!was){ loadSpec(film.spec); }
+  requestAnimationFrame(loop);
+  try {
+    if (window.claude && window.claude.use){
+      sample = await window.claude.use('sample'); downloads = await window.claude.use('downloads');
+    }
+  } catch { sample = null; }
+  if (!sample){ // running on your own computer: use the small local server (server.mjs) if it is there
+    try {
+      const r = await fetch('/api/health');
+      if (r.ok){
+        sample = { json: async (prompt, o = {}) => {
+          let res;
+          try { res = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }), signal: o.signal }); }
+          catch (e){ if (e && e.name === 'AbortError') throw { code: 'cancelled' }; throw e; }
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) throw { code: 'error', message: j.error || ('server answered ' + res.status) };
+          const data = tryParse(j.text); if (!data) throw { code: 'invalid_json', text: j.text };
+          return data;
+        } };
+        if (!downloads) downloads = { save: async ({ filename, data }) => {
+          const u = URL.createObjectURL(data instanceof Blob ? data : new Blob([data])), a = document.createElement('a');
+          a.href = u; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000); return { status: 'saved' };
+        } };
+      }
+    } catch {}
+  }
+  if (!sample) setStatus('Sample film loaded. Writing new films needs Claude: open this page in Claude, or run the local server (see README).');
+  if (canRecord()) ui.save.hidden = false;
+})();
+})();
+</script>
