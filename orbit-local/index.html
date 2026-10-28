@@ -315,6 +315,12 @@ const num = (v, d, a, b) => { v = Number(v); return Number.isFinite(v) ? clamp(v
 function cleanItem(it){
   if (!it || typeof it !== 'object' || !TYPES.has(it.type)) return null;
   const o = { type: it.type, color: COL[it.color] ? it.color : 'ink' };
+  o.id = String(it.id || '').slice(0, 40);
+  o.intent = ['establish', 'explain', 'emphasize', 'transform'].includes(it.intent) ? it.intent : 'explain';
+  o.pauseAfter = num(it.pauseAfter, 0, 0, 1.5);
+  o.transformFrom = Array.isArray(it.transformFrom) && it.transformFrom.length >= 2
+    ? [num(it.transformFrom[0], 800, -40, 1640), num(it.transformFrom[1], 350, -40, 740)]
+    : null;
   const X = (v, d) => num(v, d, -40, 1640), Y = (v, d) => num(v, d, -40, 740);
   switch (it.type){
     case 'text': o.text = String(it.text ?? '').slice(0, 120); if (!o.text.trim()) return null; o.x = X(it.x, 100); o.y = Y(it.y, 100); o.size = num(it.size, 56, 28, 140); break;
@@ -335,19 +341,73 @@ function cleanItem(it){
 }
 function normalize(raw){
   if (!raw || typeof raw !== 'object') return null;
-  const scenes = (Array.isArray(raw.scenes) ? raw.scenes : []).slice(0, 10).map(s => ({
-    narration: String(s?.narration ?? '').slice(0, 700),
-    silence: !!s?.silence,
-    items: (Array.isArray(s?.items) ? s.items : []).slice(0, 14).map(cleanItem).filter(Boolean)
-  })).filter(s => s.items.length);
+  const scenes = (Array.isArray(raw.scenes) ? raw.scenes : []).slice(0, 10).map((s, sceneIndex) => {
+    const items = (Array.isArray(s?.items) ? s.items : []).slice(0, 14).map((item, itemIndex) => {
+      const clean = cleanItem(item);
+      if (clean && !clean.id) clean.id = `scene-${sceneIndex + 1}-item-${itemIndex + 1}`;
+      return clean;
+    }).filter(Boolean);
+    return {
+      narration: String(s?.narration ?? '').slice(0, 700),
+      silence: !!s?.silence,
+      hyperframe: cleanHyperframe(s?.hyperframe, items),
+      items
+    };
+  }).filter(s => s.items.length);
   if (scenes.length < 2) return null;
   return {
     title: String(raw.title || 'Untitled film').slice(0, 60),
     lang: String(raw.lang || 'en').slice(0, 12),
     logline: String(raw.logline || '').slice(0, 260),
     closing: String(raw.closing || '').slice(0, 220),
+    style: cleanStyle(raw.style),
     scenes
   };
+}
+function cleanStyle(style){
+  if (!style || typeof style !== 'object') return {
+    visualLanguage: 'clear hand-drawn whiteboard diagrams',
+    palette: ['ink', 'blue', 'accent'],
+    motif: ''
+  };
+  const palette = Array.isArray(style.palette) ? style.palette.filter(c => COL[c]).slice(0, 4) : [];
+  return {
+    visualLanguage: String(style.visualLanguage || 'clear hand-drawn whiteboard diagrams').slice(0, 120),
+    palette: palette.length >= 2 ? palette : ['ink', 'blue', 'accent'],
+    motif: String(style.motif || '').slice(0, 100)
+  };
+}
+function cleanHyperframe(frame, items = []){
+  if (!frame || typeof frame !== 'object') frame = {};
+  const focus = Array.isArray(frame.focus) ? frame.focus : [];
+  const fallback = focus.length >= 2 ? focus : focusForItems(items);
+  const cleanPoint = (point, fallbackPoint) => {
+    const p = Array.isArray(point) ? point : fallbackPoint;
+    return [num(p[0], fallbackPoint[0], 180, 1420), num(p[1], fallbackPoint[1], 120, 580)];
+  };
+  const start = cleanPoint(frame.start?.focus, fallback);
+  const end = cleanPoint(frame.end?.focus, start);
+  const startZoom = num(frame.start?.zoom, num(frame.zoom, 1, .72, 1.12), .72, 1.12);
+  const endZoom = num(frame.end?.zoom, startZoom, .72, 1.12);
+  const transition = ['cut', 'pan', 'push', 'pull', 'orbit'].includes(frame.transition) ? frame.transition : 'pan';
+  return {
+    focus: start,
+    zoom: startZoom,
+    endFocus: end,
+    endZoom,
+    transition,
+    emphasis: String(frame.emphasis || '').slice(0, 100),
+    continuity: String(frame.continuity || '').slice(0, 100)
+  };
+}
+function focusForItems(items){
+  const points = items.map(it => {
+    if (Number.isFinite(it.x) && Number.isFinite(it.y)) return [it.x, it.y];
+    if (Number.isFinite(it.x1) && Number.isFinite(it.y1) && Number.isFinite(it.x2) && Number.isFinite(it.y2)) return [(it.x1 + it.x2) / 2, (it.y1 + it.y2) / 2];
+    return null;
+  }).filter(Boolean);
+  if (!points.length) return [800, 350];
+  return [points.reduce((sum, p) => sum + p[0], 0) / points.length, points.reduce((sum, p) => sum + p[1], 0) / points.length];
 }
 
 /* ---------- building the film: scenes, ops, camera ---------- */
@@ -363,14 +423,18 @@ function textInfo(it){
 function itemOp(it, ox, oy, seed){
   const rnd = mulberry(seed), s0 = rnd() * 20;
   const P = (x, y) => [x + ox, y + oy];
-  const op = { kind: 'stroke', color: it.color, w: 7, type: it.type };
+  const op = { kind: 'stroke', color: it.color, w: 7, type: it.type, intent: it.intent, pauseAfter: it.pauseAfter, id: it.id };
   let polys = [];
   const prep = (pts, amp = 1.6) => wobble(resample(pts, 11), s0 + polys.length, amp);
   switch (it.type){
     case 'text': {
       op.kind = 'text'; op.t = textInfo({ ...it, x: it.x + ox, y: it.y + oy }); op.len = op.t.total;
       op.bb = [op.t.x, op.t.y, op.t.x + Math.max(...op.t.widths), op.t.y + op.t.lines.length * op.t.lineH];
-      op.weight = op.t.total * 1.1 + 70; return op; }
+      if (it.transformFrom) {
+        op.transformFrom = [it.transformFrom[0] + ox, it.transformFrom[1] + oy];
+        op.transformTo = [it.x + ox, it.y + oy];
+      }
+      op.weight = (op.t.total * 1.1 + 70) * ({ establish: 1.3, explain: 1, emphasize: .72, transform: 1.15 }[it.intent] || 1); return op; }
     case 'line': case 'arrow': {
       const a = P(it.x1, it.y1), b = P(it.x2, it.y2), L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
       const e = [b[0] + ux * 4, b[1] + uy * 4];
@@ -405,14 +469,28 @@ function itemOp(it, ox, oy, seed){
     case 'magnet': op.kind = 'magnet'; op.x0 = it.x + ox; op.y0 = it.y + oy; op.x1 = it.toX + ox; op.y1 = it.toY + oy; op.weight = 520; op.len = 0; op.bb = [Math.min(op.x0, op.x1) - 50, Math.min(op.y0, op.y1) - 50, Math.max(op.x0, op.x1) + 50, Math.max(op.y0, op.y1) + 50]; return op;
     case 'erase': op.kind = 'erase'; op.x = it.x + ox; op.y = it.y + oy; op.w = it.w; op.h = it.h; op.weight = 760; op.len = 0; op.bb = [op.x, op.y, op.x + op.w, op.y + op.h]; return op;
   }
-  const r = mkRuns(polys); if (!r.runs.length) return null; op.runs = r.runs; op.len = r.len; op.bb = r.bb; op.path = r.path; op.weight = r.len + 60; op.id = seed;
+  const r = mkRuns(polys); if (!r.runs.length) return null; op.runs = r.runs; op.len = r.len; op.bb = r.bb; op.path = r.path;
+  const anchor = itemAnchor(it);
+  if (it.transformFrom) {
+    op.transformFrom = [it.transformFrom[0] + ox, it.transformFrom[1] + oy];
+    op.transformTo = [anchor[0] + ox, anchor[1] + oy];
+  }
+  const intentWeight = { establish: 1.3, explain: 1, emphasize: .72, transform: 1.15 }[it.intent] || 1;
+  op.weight = (r.len + 60) * intentWeight;
+  op.id = seed;
   return op;
+}
+function itemAnchor(it){
+  if (Number.isFinite(it.x) && Number.isFinite(it.y)) return [it.x, it.y];
+  if (Number.isFinite(it.x1) && Number.isFinite(it.y1) && Number.isFinite(it.x2) && Number.isFinite(it.y2)) return [(it.x1 + it.x2) / 2, (it.y1 + it.y2) / 2];
+  if (Array.isArray(it.pts) && it.pts.length) return it.pts.reduce((a, p) => [a[0] + p[0], a[1] + p[1]], [0, 0]).map(v => v / it.pts.length);
+  return [800, 350];
 }
 function schedule(ops, w0, w1){
   if (!ops.length) return;
-  const gap = 0.1, avail = Math.max(1.0, w1 - w0 - gap * (ops.length - 1)), total = ops.reduce((a, o) => a + o.weight, 0);
+  const gaps = ops.map(o => Math.max(.08, o.pauseAfter || .1)), avail = Math.max(1.0, w1 - w0 - gaps.reduce((a, b) => a + b, 0)), total = ops.reduce((a, o) => a + o.weight, 0);
   let c = w0;
-  for (const o of ops){ const d = Math.max(0.2, avail * o.weight / total); o.t0 = c; o.t1 = c + d; c += d + gap; }
+  for (let i = 0; i < ops.length; i++){ const o = ops[i], d = Math.max(0.2, avail * o.weight / total); o.t0 = c; o.t1 = c + d; c += d + gaps[i]; }
 }
 
 function buildFilm(spec){
@@ -420,7 +498,16 @@ function buildFilm(spec){
   const n = spec.scenes.length + 1, rows = Math.ceil(n / COLS);
   f.board = { x: 0, y: 0, w: COLS * CELLW, h: rows * CELLH };
   const cellOrigin = i => ({ ox: (i % COLS) * CELLW + 100, oy: Math.floor(i / COLS) * CELLH + 80 });
-  const cellCam = i => { const o = cellOrigin(i); return { cx: o.ox + 800, cy: o.oy + 390, z: W / 1700 }; };
+  const cellCam = (i, frame, edge = 'start') => {
+    const o = cellOrigin(i), hf = frame?.hyperframe;
+    const focus = edge === 'end' ? hf?.endFocus : hf?.focus;
+    const zoom = edge === 'end' ? hf?.endZoom : hf?.zoom;
+    return {
+      cx: o.ox + (focus?.[0] ?? 800),
+      cy: o.oy + (focus?.[1] ?? 390),
+      z: (W / 1700) * (zoom ?? 1)
+    };
+  };
   let t = 0;
   // title scene
   {
@@ -431,21 +518,29 @@ function buildFilm(spec){
     const items = [{ type: 'text', text: title, x: tx, y: 190, size, color: 'ink' }, { type: 'line', x1: tx, y1: 190 + size * 1.12 + 14, x2: tx + tw, y2: 190 + size * 1.12 + 14, color: 'accent' }];
     if (spec.logline){ items.push({ type: 'text', text: spec.logline.length > 90 ? spec.logline.slice(0, 88).replace(/\s+\S*$/, '') + '…' : spec.logline, x: 120, y: 190 + size * 1.12 + 70, size: 44, color: 'blue' }); }
     const ops = items.map((it, k) => itemOp(it, o.ox, o.oy, hstr(title) + k)).filter(Boolean);
-    const sc = { kind: 'title', start: 0, dur: 4.0, text: '', silence: false, cam: cellCam(0), camStart: 0, camEnd: 0, speakAt: 99 };
+    const sc = { kind: 'title', start: 0, dur: 4.0, text: '', silence: false, cam: cellCam(0), camEnd: cellCam(0), camStart: 0, camMoveEnd: 0, speakAt: 99 };
     schedule(ops, 0.25, 3.4); f.ops.push(...ops); f.scenes.push(sc); t = sc.dur;
   }
   spec.scenes.forEach((s, i) => {
     const o = cellOrigin(i + 1), lead = s.silence ? 1.8 : 0.6;
     const dur = clamp(lead + speechSecs(s.narration) + 1.0, 4.4, 42);
-    const sc = { kind: 'scene', start: t, dur, text: s.narration, silence: s.silence, cam: cellCam(i + 1), camStart: t - 0.5, camEnd: t + 0.7, speakAt: t + lead, items: s.items.length };
-    const ops = s.items.map((it, k) => itemOp(it, o.ox, o.oy, hstr(spec.title) + (i + 1) * 131 + k * 17)).filter(Boolean);
-    schedule(ops, t + 0.4, t + dur - 0.7);
+    const prior = new Map();
+    if (i > 0) for (const previous of spec.scenes[i - 1].items) if (previous.id) prior.set(previous.id, itemAnchor(previous));
+    const sceneItems = s.items.map(it => {
+      const previous = prior.get(it.id);
+      return previous && !it.transformFrom ? { ...it, transformFrom: previous, intent: 'transform' } : it;
+    });
+    const sc = { kind: 'scene', start: t, dur, text: s.narration, silence: s.silence, cam: cellCam(i + 1, s), camEnd: cellCam(i + 1, s, 'end'), camStart: t + 0.25, camMoveEnd: t + dur - 0.45, speakAt: t + lead, items: sceneItems.length, emphasis: s.hyperframe?.emphasis || '', continuity: s.hyperframe?.continuity || '', transition: s.hyperframe?.transition || 'pan' };
+    const ops = sceneItems.map((it, k) => itemOp(it, o.ox, o.oy, hstr(spec.title) + (i + 1) * 131 + k * 17)).filter(Boolean);
+    const drawEnd = Math.min(t + dur - 0.7, t + lead + speechSecs(s.narration) * .72);
+    schedule(ops, t + 0.25, Math.max(t + 1.2, drawEnd));
     f.ops.push(...ops); f.scenes.push(sc); t += dur;
   });
   {
     const bz = Math.min(W / (f.board.w + 420), H / (f.board.h + 520));
     const dur = Math.max(5.2, speechSecs(spec.closing) + 2.2);
-    f.scenes.push({ kind: 'closing', start: t, dur, text: spec.closing, silence: false, cam: { cx: f.board.w / 2, cy: f.board.h / 2 + 90, z: bz }, camStart: t - 0.2, camEnd: t + 2.0, speakAt: t + 1.2 });
+    const closingCam = { cx: f.board.w / 2, cy: f.board.h / 2 + 90, z: bz };
+    f.scenes.push({ kind: 'closing', start: t, dur, text: spec.closing, silence: false, cam: closingCam, camEnd: closingCam, camStart: t, camMoveEnd: t, speakAt: t + 1.2, transition: 'pull' });
     t += dur;
   }
   f.DUR = t;
@@ -464,11 +559,24 @@ function buildFilm(spec){
 function camAt(t){
   const S = film.scenes;
   let i = 0;
-  for (let k = 1; k < S.length; k++) if (t >= S[k].camStart) i = k;
+  for (let k = 1; k < S.length; k++) if (t >= S[k].start) i = k;
   if (i === 0) return S[0].cam;
-  const a = S[i - 1].cam, b = S[i].cam;
-  const u = clamp((t - S[i].camStart) / (S[i].camEnd - S[i].camStart), 0, 1), e = smooth(u);
-  const dist = Math.hypot(a.cx - b.cx, a.cy - b.cy), pull = Math.min(.35, dist / 7000) * (S[i].kind === 'closing' ? 0 : 1);
+  const sc = S[i], transition = sc.transition || 'pan';
+  const incoming = clamp((t - (sc.start - .5)) / .75, 0, 1);
+  const outgoing = clamp((t - sc.camStart) / Math.max(.1, sc.camMoveEnd - sc.camStart), 0, 1);
+  const ease = u => transition === 'cut' ? (u < .5 ? 0 : 1)
+    : transition === 'push' ? u * u
+    : transition === 'pull' ? 1 - (1 - u) * (1 - u)
+    : transition === 'orbit' ? .5 - Math.cos(Math.PI * u) / 2
+    : smooth(u);
+  if (t < sc.camStart) {
+    const e = ease(incoming), a = S[i - 1].camEnd, b = sc.cam;
+    return { cx: lerp(a.cx, b.cx, e), cy: lerp(a.cy, b.cy, e), z: 1 / lerp(1 / a.z, 1 / b.z, e) };
+  }
+  if (t >= sc.camMoveEnd) return sc.camEnd;
+  const a = sc.cam, b = sc.camEnd, u = outgoing;
+  const e = ease(u);
+  const dist = Math.hypot(a.cx - b.cx, a.cy - b.cy), pull = Math.min(.35, dist / 7000);
   const iz = lerp(1 / a.z, 1 / b.z, e) + pull * Math.sin(Math.PI * u);
   return { cx: lerp(a.cx, b.cx, e), cy: lerp(a.cy, b.cy, e), z: 1 / iz };
 }
@@ -510,6 +618,15 @@ function tipAt(op, p){
     acc += r.len;
   }
   return [op.bb[0], op.bb[1]];
+}
+function visualTipAt(op, p){
+  const point = tipAt(op, p);
+  if (!op.transformFrom || !op.transformTo) return point;
+  const e = p;
+  return [point[0] + lerp(op.transformFrom[0] - op.transformTo[0], 0, e), point[1] + lerp(op.transformFrom[1] - op.transformTo[1], 0, e)];
+}
+function opProgress(op, t){
+  return easeStroke(clamp((t - op.t0) / Math.max(.001, op.t1 - op.t0), 0, 1));
 }
 function drawText(g, op, p){
   const T = op.t; let rev = p * T.total;
@@ -557,16 +674,16 @@ function penAt(t){
   const P = film.penOps; let i = -1;
   for (let k = 0; k < P.length; k++){ if (P[k].t0 <= t) i = k; else break; }
   const cur = i >= 0 ? P[i] : null, next = P[i + 1] || null;
-  if (cur && t <= cur.t1){ const [x, y] = tipAt(cur, easeStroke((t - cur.t0) / (cur.t1 - cur.t0))); return { x, y, color: cur.color, lift: 0, park: 0 }; }
+  if (cur && t <= cur.t1){ const [x, y] = visualTipAt(cur, opProgress(cur, t)); return { x, y, color: cur.color, lift: 0, park: 0 }; }
   if (cur && next){
     const gap = next.t0 - cur.t1;
     if (gap < 0.75){
-      const u = clamp((t - cur.t1) / gap, 0, 1), e = smooth(u), a = tipAt(cur, 1), b = tipAt(next, 0);
+      const u = clamp((t - cur.t1) / gap, 0, 1), e = smooth(u), a = visualTipAt(cur, 1), b = visualTipAt(next, 0);
       return { x: lerp(a[0], b[0], e), y: lerp(a[1], b[1], e), color: u > .5 ? next.color : cur.color, lift: Math.sin(Math.PI * u) * .9, park: 0 };
     }
   }
-  if (cur && t - cur.t1 < 0.35){ const a = tipAt(cur, 1); return { x: a[0], y: a[1], color: cur.color, lift: 1, park: smooth((t - cur.t1) / 0.35) }; }
-  if (next && next.t0 - t < 0.42){ const b = tipAt(next, 0); return { x: b[0], y: b[1], color: next.color, lift: 1, park: 1 - smooth(1 - (next.t0 - t) / 0.42) }; }
+  if (cur && t - cur.t1 < 0.35){ const a = visualTipAt(cur, 1); return { x: a[0], y: a[1], color: cur.color, lift: 1, park: smooth((t - cur.t1) / 0.35) }; }
+  if (next && next.t0 - t < 0.42){ const b = visualTipAt(next, 0); return { x: b[0], y: b[1], color: next.color, lift: 1, park: 1 - smooth(1 - (next.t0 - t) / 0.42) }; }
   return { x: 0, y: 0, color: 'ink', lift: 1, park: 1 };
 }
 function drawPen(sx, sy, color, lift, s){
@@ -592,17 +709,56 @@ function wrapText(text, maxW){
   if (line.trim()) out.push(line.trim());
   return out.slice(0, 3);
 }
+function subtitleLayout(text, maxW){
+  const cjk = isCJK(text), tokens = cjk ? [...text] : text.trim().split(/\s+/), joiner = cjk ? '' : ' ';
+  const lines = [], line = [];
+  for (const token of tokens){
+    const candidate = line.length ? line.join(joiner) + joiner + token : token;
+    if (ctx.measureText(candidate).width > maxW && line.length){ lines.push(line.splice(0, line.length)); }
+    line.push(token);
+  }
+  if (line.length) lines.push(line);
+  return lines.slice(0, 3);
+}
+function subtitleTokens(text){
+  if (isCJK(text)) return [...text].map((word, start) => ({ word, start, end: start + 1 }));
+  return [...text.matchAll(/\S+/g)].map(match => ({ word: match[0], start: match.index, end: match.index + match[0].length }));
+}
 function drawSubtitle(t){
   const sc = film.scenes[sceneAt(t)];
   if (!sc.text || t < sc.speakAt - 0.15 || t > sc.start + sc.dur - 0.1) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = `30px ${SUBF}`; ctx.textBaseline = 'middle';
-  const lines = wrapText(sc.text, 1000), lh = 42, bw = Math.min(1120, Math.max(...lines.map(l => ctx.measureText(l).width)) + 70), bh = lines.length * lh + 22;
+  const lines = subtitleLayout(sc.text, 1000), lh = 42, joiner = isCJK(sc.text) ? '' : ' ', widths = lines.map(words => ctx.measureText(words.join(joiner)).width), bw = Math.min(1120, Math.max(...widths) + 70), bh = lines.length * lh + 22;
   const x = (W - bw) / 2, y = H - 26 - bh;
   ctx.fillStyle = 'rgba(250,250,247,.92)'; ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 14); ctx.fill();
   ctx.fillStyle = COL.accent; ctx.fillRect(x + 18, y + 14, 5, bh - 28);
-  ctx.fillStyle = '#23262c'; ctx.textAlign = 'center';
-  lines.forEach((l, i) => ctx.fillText(l, x + bw / 2 + 8, y + 11 + lh / 2 + i * lh));
+  const fallbackProgress = clamp((t - sc.speakAt) / Math.max(.1, speechSecs(sc.text)), 0, 1);
+  const tokens = subtitleTokens(sc.text), activeChar = sc.captionSynced && Number.isFinite(sc.captionChar)
+    ? sc.captionChar
+    : Math.floor(fallbackProgress * sc.text.length);
+  let seen = 0; ctx.textAlign = 'left';
+  lines.forEach((words, i) => {
+    const text = words.join(joiner), lineW = widths[i], startX = x + (bw - lineW) / 2 + 8, baseY = y + 11 + lh / 2 + i * lh;
+    let cursor = startX;
+    words.forEach(word => {
+      const wordW = ctx.measureText(word).width;
+      const token = tokens[seen], active = token && activeChar >= token.start && activeChar < token.end;
+      if (active){ ctx.fillStyle = 'rgba(167,243,208,.72)'; ctx.fillRect(cursor - 5, baseY - 17, wordW + 10, 34); }
+      ctx.fillStyle = active ? '#07130f' : '#23262c'; ctx.fillText(word, cursor, baseY);
+      cursor += wordW + (joiner ? ctx.measureText(' ').width : 0); seen++;
+    });
+  });
   ctx.textAlign = 'left';
+}
+function drawEmphasis(t, sc, cam){
+  if (!sc.emphasis || t < sc.speakAt) return;
+  const at = sc.speakAt + speechSecs(sc.text) * .45, u = clamp((t - at) / .95, 0, 1);
+  if (!u || u >= 1) return;
+  const pulse = Math.sin(Math.PI * u), x = (sc.cam.cx - cam.cx) * cam.z + W / 2, y = (sc.cam.cy - cam.cy) * cam.z + H / 2, r = 76 + 24 * pulse;
+  const shade = ctx.createRadialGradient(x, y, r * .8, x, y, Math.max(W, H) * .8);
+  shade.addColorStop(0, 'rgba(255,255,255,0)'); shade.addColorStop(1, 'rgba(8,11,18,.28)');
+  ctx.fillStyle = shade; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = `rgba(217,72,43,${.35 + .35 * pulse})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
 }
 
 function render(t){
@@ -636,16 +792,22 @@ function render(t){
     if (op.t0 > t) break;
     if (op.kind === 'magnet') continue;
     if (!inView(op.bb)) continue;
-    const p = clamp((t - op.t0) / (op.t1 - op.t0), 0, 1);
+    const p = clamp((t - op.t0) / Math.max(.001, op.t1 - op.t0), 0, 1);
     if (op.kind === 'erase'){
       const E = eraseState(op, easeStroke(p)); lx.save(); lx.globalCompositeOperation = 'destination-out'; lx.globalAlpha = .9;
       for (const r of E.rects) lx.fillRect(r[0], r[1], r[2], r[3]); lx.restore(); continue;
     }
-    const e = easeStroke(p); lx.globalAlpha = .94;
-    if (op.kind === 'text'){ drawText(lx, op, e); continue; }
+    const e = opProgress(op, t); lx.globalAlpha = .94;
+    const moving = op.transformFrom && op.transformTo;
+    if (moving) {
+      const dx = lerp(op.transformFrom[0] - op.transformTo[0], 0, e), dy = lerp(op.transformFrom[1] - op.transformTo[1], 0, e);
+      lx.save(); lx.translate(dx, dy);
+    }
+    if (op.kind === 'text'){ drawText(lx, op, e); if (moving) lx.restore(); continue; }
     lx.strokeStyle = COL[op.color]; lx.lineWidth = op.w;
     if (e >= 1) lx.stroke(op.path); else partialStroke(lx, op, e);
     lx.globalAlpha = .3; lx.fillStyle = COL[op.color]; lx.beginPath(); lx.arc(op.runs[0].x[0], op.runs[0].y[0], op.w * .8, 0, 7); lx.fill();
+    if (moving) lx.restore();
   }
   lx.globalAlpha = 1;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(layer, 0, 0); ctx.globalCompositeOperation = 'source-over';
@@ -661,6 +823,7 @@ function render(t){
   const pen = penAt(t), ps = clamp(z / .75, .55, 1.5) * .9;
   const sx = lerp((pen.x - cam.cx) * z + W / 2, W + 50, pen.park), sy = lerp((pen.y - cam.cy) * z + H / 2, H + 150, pen.park);
   if (pen.park < 1) drawPen(sx, sy, pen.color, pen.lift, ps);
+  drawEmphasis(t, film.scenes[sceneAt(t)], cam);
   // sheen
   const span = W * 1.7, off = ((-cam.cx * z * .35) % span + span) % span - W * .4;
   g = ctx.createLinearGradient(off, 0, off + 240, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,.13)'); g.addColorStop(1, 'rgba(255,255,255,0)');
@@ -723,10 +886,10 @@ const AU = {
       }
     }
     film.scenes.forEach((sc, i) => { // whoosh on every camera travel
-      if (i === 0 || sc.camStart < from) return;
-      const d = sc.camEnd - sc.camStart, s = noiseSrc(at(sc.camStart), d, 0), bp = ac.createBiquadFilter(), g = ac.createGain();
-      bp.type = 'bandpass'; bp.Q.value = .8; bp.frequency.setValueAtTime(380, at(sc.camStart)); bp.frequency.linearRampToValueAtTime(sc.kind === 'closing' ? 1800 : 1300, at(sc.camStart + d * .55)); bp.frequency.linearRampToValueAtTime(500, at(sc.camEnd));
-      g.gain.setValueAtTime(0, at(sc.camStart)); g.gain.linearRampToValueAtTime(.05, at(sc.camStart + d * .5)); g.gain.linearRampToValueAtTime(0, at(sc.camEnd)); s.connect(bp); bp.connect(g); g.connect(m);
+      if (i === 0 || sc.camStart < from || sc.camMoveEnd <= sc.camStart) return;
+      const d = sc.camMoveEnd - sc.camStart, s = noiseSrc(at(sc.camStart), d, 0), bp = ac.createBiquadFilter(), g = ac.createGain();
+      bp.type = 'bandpass'; bp.Q.value = .8; bp.frequency.setValueAtTime(380, at(sc.camStart)); bp.frequency.linearRampToValueAtTime(sc.kind === 'closing' ? 1800 : 1300, at(sc.camStart + d * .55)); bp.frequency.linearRampToValueAtTime(500, at(sc.camMoveEnd));
+      g.gain.setValueAtTime(0, at(sc.camStart)); g.gain.linearRampToValueAtTime(.05, at(sc.camStart + d * .5)); g.gain.linearRampToValueAtTime(0, at(sc.camMoveEnd)); s.connect(bp); bp.connect(g); g.connect(m);
     });
     // small score: marimba-like arpeggio, bass, woodblock; it drops out in scenes marked silent
     const beat = 60 / 92, scale = [293.66, 329.63, 369.99, 440, 493.88, 587.33], pat = [0, 2, 4, 2, 3, 1, 4, 5], bass = [146.83, 110, 123.47, 98];
@@ -749,6 +912,12 @@ function speak(text){
   if (!state.voice || !('speechSynthesis' in window) || !text) return;
   cancelSpeech();
   const u = new SpeechSynthesisUtterance(text); u.lang = film.spec.lang || 'en'; u.rate = 1.02;
+  const sc = film.scenes[sceneAt(state.t)];
+  if (sc){ sc.captionChar = 0; sc.captionSynced = false; }
+  u.onboundary = event => {
+    if (sc && Number.isFinite(event.charIndex)){ sc.captionChar = event.charIndex; sc.captionSynced = true; state.dirty = true; }
+  };
+  u.onend = () => { if (sc) { sc.captionChar = text.length; sc.captionSynced = true; state.dirty = true; } };
   const vs = speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith(u.lang.toLowerCase().slice(0, 2)));
   if (vs.length) u.voice = vs.find(v => v.localService) || vs[0];
   speechSynthesis.speak(u);
@@ -878,7 +1047,9 @@ const DIRECTOR_PROMPT = topic => `You direct a roughly five-minute educational f
 
 TOPIC: ${JSON.stringify(topic)}
 
-Return one JSON object only. Make a beginning, step-by-step explanation, surprising turn in scene 5, useful recap, and ending that echoes the opening. Use exactly 10 scenes. Each scene has 65–70 spoken words in 3–5 short sentences, plus 4–7 large clear drawings. Each scene's drawing should match what is being explained; use different camera framings across the board. Never reuse the same generic picture for unrelated concepts. Avoid overlap and keep every label readable.
+Return one JSON object only. Make a beginning, step-by-step explanation, surprising turn in scene 5, useful recap, and ending that echoes the opening. Use exactly 10 scenes. Each scene has 45–55 spoken words in 2–4 short sentences, plus 4–6 large clear drawings. Each scene's drawing should match what is being explained; use different camera framings across the board. Never reuse the same generic picture for unrelated concepts. Avoid overlap and keep every label readable.
+
+Before the scenes, add a compact style bible with one visual language, 2–4 marker colors, and one recurring visual motif. For every scene, add a compact hyperframe plan with a focus point, zoom, and transition. Start/end focus and zoom are optional refinements. Keep the same important subject in view from one scene to the next when the explanation continues. Use short "emphasis" and "continuity" phrases. Do not add other planning fields.
 
 Use 3–4 marker colors consistently: ink for objects, blue for signals or movement, accent for the key idea. Scene 5 must have "silence": true for a brief dramatic pause. Write in the language of the topic and set "lang" to its BCP-47 code. Use real numbers only when certain.
 
@@ -894,8 +1065,10 @@ Each scene is 1600 by 700 pixels, origin at top-left. Drawing items, in the orde
 - magnet: {"type":"magnet","x":200,"y":200,"toX":700,"toY":400,"color":"accent"}; use sparingly for a moving hero object
 - erase: {"type":"erase","x":100,"y":100,"w":400,"h":240} (use at most once)
 
+For recurring objects only, add a short stable "id" and reuse it in the next scene. Optional item fields are "intent" ("establish", "explain", "emphasize", or "transform"), "transformFrom":[x,y], and "pauseAfter" (0–1.5). Prefer valid, complete JSON over optional planning fields.
+
 OUTPUT SHAPE
-{"title":"short title","lang":"en","logline":"one sentence that previews the film","closing":"short spoken recap as camera pulls back","scenes":[{"narration":"65–70 spoken words","silence":false,"items":[{"type":"icon","name":"sun","x":800,"y":350,"size":170,"color":"accent"}]}]}`;
+{"title":"short title","lang":"en","logline":"one sentence that previews the film","closing":"short spoken recap as camera pulls back","style":{"visualLanguage":"clear hand-drawn whiteboard diagrams","palette":["ink","blue","accent"],"motif":"one recurring visual metaphor"},"scenes":[{"narration":"45–55 spoken words","silence":false,"hyperframe":{"focus":[800,350],"zoom":1,"transition":"pan"},"items":[{"type":"icon","name":"sun","x":800,"y":350,"size":170,"color":"accent"}]}]}`;
 
 function tryParse(text){
   if (!text) return null;
@@ -1000,5 +1173,3 @@ document.addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TE
 })();
 })();
 </script>
-
-

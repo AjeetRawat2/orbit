@@ -42,10 +42,10 @@ No package installation is needed. The server uses Node's built-in modules. The 
 
 - The browser's built-in voice narrates the film during playback.
 - WebM export records the canvas and generated audio. Browser speech is not included in the saved video.
+- Generated scenes include a compact hyperframe plan that guides focus, zoom, and transitions in Orbit's existing Canvas renderer. This uses no additional service or paid dependency.
 - Fonts load from Google Fonts, so the hand-drawn type styling needs an internet connection.
 - The film drawing method is inspired by [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar). Its style catalog is included under `lemo-opuscar/styleboard/`.
 
 ## Keep API keys safe
 
 Never paste an API key into `index.html`, commit `.env`, or share it publicly. The local server reads the key from `.env` and sends requests to Gemini; the key is not sent to browser code. If a key was exposed, revoke it in Google AI Studio and create a replacement.
-
