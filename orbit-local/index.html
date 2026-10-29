@@ -54,6 +54,7 @@ button:focus-visible,input:focus-visible,input[type=range]:focus-visible{outline
 .stage canvas{display:block;width:100%;height:100%}
 .transport{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tbtn{height:40px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);padding:0 14px;font-weight:500;font-size:14px}
+.voice-select{height:40px;max-width:210px;border:1.5px solid var(--line);border-radius:8px;background:var(--panel);color:var(--fg);padding:0 10px;font:500 13px var(--f-body)}
 .tbtn[aria-pressed=false]{color:var(--muted);text-decoration:line-through}
 .tbtn.play{background:var(--fg);color:var(--bg);border-color:var(--fg);min-width:84px}
 .tbtn[disabled]{opacity:.5;cursor:not-allowed}
@@ -172,6 +173,7 @@ footer a{color:#b1caff}
     <input class="scrub" id="scrub" type="range" min="0" max="1000" value="0" aria-label="Film position">
     <span class="time" id="time">0:00 / 0:00</span>
     <button class="tbtn" id="voice" type="button" aria-pressed="true">Voice</button>
+    <select class="voice-select" id="voice-select" aria-label="Narrator voice" title="Narrator voice"></select>
     <button class="tbtn" id="snd" type="button" aria-pressed="true">Sound</button>
     <button class="tbtn" id="save" type="button" hidden>Save film</button>
   </div>
@@ -907,6 +909,39 @@ const AU = {
 
 /* ---------- narration ---------- */
 let spokenIdx = -1;
+let availableVoices = [];
+const AUTO_VOICE = '__auto__';
+function voiceKey(v){ return v.voiceURI || `${v.name}|${v.lang}`; }
+function voiceLanguageMatches(v, lang){
+  return !!(v.lang && lang && v.lang.toLowerCase().startsWith(lang.toLowerCase().slice(0, 2)));
+}
+function preferredVoice(lang){
+  const matching = availableVoices.filter(v => voiceLanguageMatches(v, lang));
+  const local = matching.filter(v => v.localService);
+  const pool = local.length ? local : matching;
+  return pool.find(v => !/^(dave|david)\b/i.test(v.name)) || pool[0] || null;
+}
+function populateVoices(){
+  if (!('speechSynthesis' in window)) return;
+  const previous = ui.voiceSelect?.value || AUTO_VOICE;
+  availableVoices = speechSynthesis.getVoices().slice().sort((a, b) => `${a.lang} ${a.name}`.localeCompare(`${b.lang} ${b.name}`));
+  if (!ui.voiceSelect) return;
+  ui.voiceSelect.innerHTML = '';
+  const autoVoice = preferredVoice(film?.spec?.lang || navigator.language || 'en');
+  const auto = document.createElement('option'); auto.value = AUTO_VOICE; auto.textContent = autoVoice ? `Auto — ${autoVoice.name}` : 'Auto — browser voice'; ui.voiceSelect.appendChild(auto);
+  for (const voice of availableVoices){
+    const option = document.createElement('option');
+    option.value = voiceKey(voice); option.textContent = `${voice.name} (${voice.lang})`;
+    option.dataset.local = voice.localService ? 'true' : 'false';
+    ui.voiceSelect.appendChild(option);
+  }
+  ui.voiceSelect.value = availableVoices.some(v => voiceKey(v) === previous) ? previous : AUTO_VOICE;
+}
+function selectedVoice(lang){
+  const key = ui.voiceSelect?.value || AUTO_VOICE;
+  if (key !== AUTO_VOICE) return availableVoices.find(v => voiceKey(v) === key) || preferredVoice(lang);
+  return preferredVoice(lang);
+}
 function cancelSpeech(){ try { speechSynthesis.cancel(); } catch {} }
 function speak(text){
   if (!state.voice || !('speechSynthesis' in window) || !text) return;
@@ -918,14 +953,20 @@ function speak(text){
     if (sc && Number.isFinite(event.charIndex)){ sc.captionChar = event.charIndex; sc.captionSynced = true; state.dirty = true; }
   };
   u.onend = () => { if (sc) { sc.captionChar = text.length; sc.captionSynced = true; state.dirty = true; } };
-  const vs = speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith(u.lang.toLowerCase().slice(0, 2)));
-  if (vs.length) u.voice = vs.find(v => v.localService) || vs[0];
+  const selected = selectedVoice(u.lang);
+  if (selected){
+    u.voice = selected;
+    if (ui.voiceSelect?.value === AUTO_VOICE) {
+      const autoOption = ui.voiceSelect.options[0];
+      if (autoOption) autoOption.textContent = `Auto — ${selected.name}`;
+    }
+  }
   speechSynthesis.speak(u);
 }
 
 /* ---------- player state and UI ---------- */
 const state = { t: 0, playing: false, voice: true, sound: true, dirty: true, last: 0, exporting: false };
-const ui = { play: $('play'), scrub: $('scrub'), time: $('time'), voice: $('voice'), snd: $('snd'), save: $('save'), story: $('story'), status: $('status'), stxt: $('stxt'), bari: $('bari') };
+const ui = { play: $('play'), scrub: $('scrub'), time: $('time'), voice: $('voice'), voiceSelect: $('voice-select'), snd: $('snd'), save: $('save'), story: $('story'), status: $('status'), stxt: $('stxt'), bari: $('bari') };
 function setStatus(msg, busy, pct){ ui.stxt.textContent = msg; ui.status.classList.toggle('busy', !!busy); ui.bari.style.width = (pct || 0) + '%'; }
 function seek(t, keepPlaying){
   state.t = clamp(t, 0, film.DUR); state.dirty = true; spokenIdx = -1; cancelSpeech();
@@ -1047,11 +1088,11 @@ const DIRECTOR_PROMPT = topic => `You direct a roughly five-minute educational f
 
 TOPIC: ${JSON.stringify(topic)}
 
-Return one JSON object only. Make a beginning, step-by-step explanation, surprising turn in scene 5, useful recap, and ending that echoes the opening. Use exactly 10 scenes. Each scene has 45–55 spoken words in 2–4 short sentences, plus 4–6 large clear drawings. Each scene's drawing should match what is being explained; use different camera framings across the board. Never reuse the same generic picture for unrelated concepts. Avoid overlap and keep every label readable.
+Return one compact JSON object only. Make a beginning, step-by-step explanation, surprising turn in scene 5, useful recap, and ending that echoes the opening. Use exactly 10 scenes. Each scene has 35–45 spoken words in 2–3 short sentences and exactly 3–4 large clear drawings. Each scene's drawing should match what is being explained. Keep labels short and readable; avoid decorative or duplicate drawings.
 
-Before the scenes, add a compact style bible with one visual language, 2–4 marker colors, and one recurring visual motif. For every scene, add a compact hyperframe plan with a focus point, zoom, and transition. Start/end focus and zoom are optional refinements. Keep the same important subject in view from one scene to the next when the explanation continues. Use short "emphasis" and "continuity" phrases. Do not add other planning fields.
+Use the existing hand-drawn whiteboard style. The style object is optional. A scene hyperframe is optional; include only a compact focus, zoom, and transition when useful. Keep the same important subject in view from one scene to the next when the explanation continues. Do not add other planning fields.
 
-Use 3–4 marker colors consistently: ink for objects, blue for signals or movement, accent for the key idea. Scene 5 must have "silence": true for a brief dramatic pause. Write in the language of the topic and set "lang" to its BCP-47 code. Use real numbers only when certain.
+Use ink, blue, and accent consistently. Scene 5 must have "silence": true. Write in the language of the topic and set "lang" to its BCP-47 code. Use real numbers only when certain.
 
 Each scene is 1600 by 700 pixels, origin at top-left. Drawing items, in the order the marker should draw them:
 - text: {"type":"text","text":"label","x":100,"y":100,"size":70,"color":"ink"} (x,y top-left; short lines)
@@ -1065,10 +1106,10 @@ Each scene is 1600 by 700 pixels, origin at top-left. Drawing items, in the orde
 - magnet: {"type":"magnet","x":200,"y":200,"toX":700,"toY":400,"color":"accent"}; use sparingly for a moving hero object
 - erase: {"type":"erase","x":100,"y":100,"w":400,"h":240} (use at most once)
 
-For recurring objects only, add a short stable "id" and reuse it in the next scene. Optional item fields are "intent" ("establish", "explain", "emphasize", or "transform"), "transformFrom":[x,y], and "pauseAfter" (0–1.5). Prefer valid, complete JSON over optional planning fields.
+For recurring objects only, add a short stable "id" and reuse it in the next scene. Optional item fields are "intent" and "pauseAfter". Do not use transformFrom unless the object clearly moves. Prefer valid, complete JSON over optional planning fields.
 
 OUTPUT SHAPE
-{"title":"short title","lang":"en","logline":"one sentence that previews the film","closing":"short spoken recap as camera pulls back","style":{"visualLanguage":"clear hand-drawn whiteboard diagrams","palette":["ink","blue","accent"],"motif":"one recurring visual metaphor"},"scenes":[{"narration":"45–55 spoken words","silence":false,"hyperframe":{"focus":[800,350],"zoom":1,"transition":"pan"},"items":[{"type":"icon","name":"sun","x":800,"y":350,"size":170,"color":"accent"}]}]}`;
+{"title":"short title","lang":"en","logline":"one sentence","closing":"short spoken recap","scenes":[{"narration":"35–45 spoken words","silence":false,"items":[{"type":"icon","name":"sun","x":800,"y":350,"size":170,"color":"accent"}]}]}`;
 
 function tryParse(text){
   if (!text) return null;
@@ -1136,11 +1177,18 @@ $('chips').addEventListener('click', e => { const b = e.target.closest('.chip');
 ui.play.addEventListener('click', () => state.playing ? pause() : play());
 ui.scrub.addEventListener('input', () => seek(ui.scrub.value / 1000 * film.DUR));
 ui.voice.addEventListener('click', () => { state.voice = !state.voice; ui.voice.setAttribute('aria-pressed', state.voice); if (!state.voice) cancelSpeech(); else spokenIdx = -1; });
+ui.voiceSelect.addEventListener('change', () => { cancelSpeech(); spokenIdx = -1; if (state.playing && state.voice) speak(film.scenes[sceneAt(state.t)]?.text || ''); });
 ui.snd.addEventListener('click', () => { state.sound = !state.sound; ui.snd.setAttribute('aria-pressed', state.sound); if (state.playing) AU.start(state.t); else AU.stop(); });
 ui.save.addEventListener('click', startExport);
 document.addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)){ e.preventDefault(); state.playing ? pause() : play(); } });
 
 (async () => {
+  if ('speechSynthesis' in window){
+    populateVoices();
+    speechSynthesis.addEventListener('voiceschanged', populateVoices);
+  } else {
+    ui.voiceSelect.hidden = true;
+  }
   loadSpec(normalize(SAMPLE));
   const f1 = document.fonts.load(`700 40px ${HAND}`), f2 = document.fonts.load(`30px ${SUBF}`);
   await Promise.race([Promise.all([f1, f2]).catch(() => {}), new Promise(r => setTimeout(r, 3000))]);
