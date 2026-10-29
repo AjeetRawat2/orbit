@@ -41,6 +41,7 @@ No package installation is needed. The server uses Node's built-in modules. The 
 ## What to expect
 
 - The browser's built-in voice narrates the film during playback.
+- Narration uses the selected browser voice; the automatic choice avoids voices named Dave or David when another compatible voice is available.
 - WebM export records the canvas and generated audio. Browser speech is not included in the saved video.
 - Generated scenes include a compact hyperframe plan that guides focus, zoom, and transitions in Orbit's existing Canvas renderer. This uses no additional service or paid dependency.
 - Fonts load from Google Fonts, so the hand-drawn type styling needs an internet connection.
