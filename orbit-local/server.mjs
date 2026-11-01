@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inflateSync, inflateRawSync } from 'node:zlib';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 try {
@@ -179,6 +180,187 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.end(type.startsWith('application/json') ? JSON.stringify(body) : body);
 }
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const retrievalWords = text => String(text || '').toLowerCase().match(/[a-z0-9][a-z0-9'-]{2,}/g) || [];
+function cleanSourceText(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 40_000);
+}
+function sourceChunks(source) {
+  const words = cleanSourceText(source.text).split(/\s+/);
+  const chunks = [];
+  for (let i = 0; i < words.length; i += 110) {
+    const text = words.slice(i, i + 150).join(' ');
+    if (text.length >= 80) chunks.push({ ...source, text });
+  }
+  return chunks;
+}
+function rankSources(topic, sources) {
+  const terms = new Set(retrievalWords(topic));
+  return sources.map((source, index) => {
+    const words = retrievalWords(source.text);
+    const matches = words.reduce((count, word) => count + (terms.has(word) ? 1 : 0), 0);
+    const unique = new Set(words);
+    const score = matches / Math.max(1, unique.size) + Math.min(matches, 12) / 100;
+    return { ...source, score, index };
+  }).sort((a, b) => b.score - a.score || a.index - b.index);
+}
+function htmlText(html) {
+  return String(html)
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function pdfLiteralText(value) {
+  let text = '';
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] !== '\\') { text += value[i]; continue; }
+    const next = value[++i];
+    if (next === 'n') text += '\n';
+    else if (next === 'r') text += '\n';
+    else if (next === 't') text += '\t';
+    else if (/[0-7]/.test(next)) {
+      let octal = next;
+      while (octal.length < 3 && /[0-7]/.test(value[i + 1] || '')) octal += value[++i];
+      text += String.fromCharCode(parseInt(octal, 8));
+    } else if (next) text += next;
+  }
+  return text;
+}
+function pdfHexText(value) {
+  const even = value.length % 2 ? `${value}0` : value;
+  const bytes = Buffer.from(even, 'hex');
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    for (let i = 0; i + 1 < bytes.length; i += 2) [bytes[i], bytes[i + 1]] = [bytes[i + 1], bytes[i]];
+    return bytes.subarray(2).toString('utf16le');
+  }
+  return bytes.toString('latin1').replace(/\u0000/g, '');
+}
+function extractPdfText(data) {
+  const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  if (bytes.length < 5 || bytes.subarray(0, 5).toString() !== '%PDF-') throw new Error('The file is not a readable PDF.');
+  const binary = bytes.toString('latin1');
+  const output = [];
+  for (const match of binary.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    const raw = Buffer.from(match[1], 'latin1');
+    let decoded = raw;
+    try { decoded = inflateSync(raw); } catch {
+      try { decoded = inflateRawSync(raw); } catch {}
+    }
+    const content = decoded.toString('latin1');
+    const strings = [];
+    for (const token of content.matchAll(/\(([\s\S]*?)\)\s*T[jJ]|<([0-9a-fA-F\s]+)>\s*T[jJ]/g)) {
+      strings.push(token[1] !== undefined ? pdfLiteralText(token[1]) : pdfHexText(token[2].replace(/\s/g, '')));
+    }
+    for (const token of content.matchAll(/\[((?:\s*(?:\((?:\\.|[^\\)])*\)|<[0-9a-fA-F\s]+>|-?\d+(?:\.\d+)?))*)\s*\]\s*TJ/gi)) {
+      for (const value of token[1].matchAll(/\(([\s\S]*?)\)|<([0-9a-fA-F\s]+)>/g)) {
+        strings.push(value[1] !== undefined ? pdfLiteralText(value[1]) : pdfHexText(value[2].replace(/\s/g, '')));
+      }
+      strings.push(' ');
+    }
+    if (strings.length) output.push(strings.join(' '));
+  }
+  const text = output.join('\n').replace(/[^\S\r\n]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  if (text.length < 80) throw new Error('This PDF contains no extractable text. Scanned or image-only PDFs are not supported yet.');
+  return text;
+}
+function isSafeRemoteUrl(parsed) {
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname === 'localhost' || hostname.endsWith('.local') || hostname === '::1') return false;
+  if (/^(127\.|10\.|192\.168\.|169\.254\.)/.test(hostname)) return false;
+  const private172 = hostname.match(/^172\.(\d+)\./);
+  return !(private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31);
+}
+async function fetchSource(url) {
+  let parsed;
+  try { parsed = new URL(url); } catch { return { error: 'Enter a valid http or https URL.' }; }
+  if (!['http:', 'https:'].includes(parsed.protocol)) return { error: 'Only http and https sources are supported.' };
+  if (!isSafeRemoteUrl(parsed)) return { error: 'Private or local network sources are not supported.' };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(parsed, { signal: controller.signal, headers: { 'user-agent': 'Orbit local research reader' } });
+    if (!response.ok) return { error: `Source returned HTTP ${response.status}.` };
+    const contentType = response.headers.get('content-type') || '';
+    const body = await response.arrayBuffer();
+    const text = contentType.includes('application/pdf') || parsed.pathname.toLowerCase().endsWith('.pdf')
+      ? extractPdfText(Buffer.from(body))
+      : htmlText(Buffer.from(body).toString('utf8'));
+    if (!text) return { error: 'The source did not contain readable text.' };
+    return { text, title: parsed.hostname, url: parsed.href };
+  } catch (error) {
+    return { error: error.name === 'AbortError' ? 'Source timed out.' : error.message || 'Source could not be reached.' };
+  } finally { clearTimeout(timer); }
+}
+async function searchWeb(query) {
+  const endpoint = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+  let html;
+  try {
+    const response = await fetch(endpoint, { signal: controller.signal, headers: { 'user-agent': 'Orbit local research reader' } });
+    if (!response.ok) return { sources: [], error: `Web search unavailable: HTTP ${response.status}.` };
+    html = await response.text();
+  } catch (error) {
+    return { sources: [], error: `Web search unavailable: ${error.name === 'AbortError' ? 'search timed out.' : 'search could not be reached.'}` };
+  } finally { clearTimeout(timer); }
+  const matches = [...String(html).matchAll(/result__a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)].slice(0, 5);
+  const sources = [];
+  for (const match of matches) {
+    let url = match[1].replace(/&amp;/g, '&');
+    if (url.startsWith('//')) url = `https:${url}`;
+    try {
+      const parsed = new URL(url);
+      const redirected = parsed.searchParams.get('uddg');
+      url = redirected ? decodeURIComponent(redirected) : parsed.href;
+    } catch { continue; }
+    if (!/^https?:\/\//i.test(url)) continue;
+    const source = await fetchSource(url);
+    if (!source.error) sources.push({ ...source, title: htmlText(match[2]).slice(0, 120) || source.title });
+  }
+  return { sources };
+}
+async function retrieveSources(topic, requestedSources, search) {
+  const sources = [];
+  const errors = [];
+  for (const requested of Array.isArray(requestedSources) ? requestedSources.slice(0, 8) : []) {
+    if (!requested || typeof requested !== 'object') continue;
+    if (requested.type === 'url' && requested.url) {
+      const source = await fetchSource(requested.url);
+      if (source.error) errors.push(`${requested.url}: ${source.error}`);
+      else sources.push({ ...source, title: requested.title || source.title, type: 'url' });
+    } else if (requested.type === 'pdf' && requested.data) {
+      try {
+        const text = extractPdfText(Buffer.from(requested.data, 'base64'));
+        sources.push({ title: requested.title || 'PDF document', text: cleanSourceText(text), type: 'pdf', url: '' });
+      } catch (error) { errors.push(`${requested.title || 'PDF document'}: ${error.message}`); }
+    } else if (['file', 'note'].includes(requested.type) && requested.text) {
+      const text = cleanSourceText(requested.text);
+      if (text.length >= 80) sources.push({ title: requested.title || requested.type, text, type: requested.type, url: '' });
+      else errors.push(`${requested.title || requested.type}: not enough readable text.`);
+    }
+  }
+  if (search) {
+    const web = await searchWeb(topic);
+    sources.push(...web.sources.map(source => ({ ...source, type: 'search' })));
+    if (web.error) errors.push(web.error);
+  }
+  const ranked = rankSources(topic, sources.flatMap(sourceChunks)).slice(0, 10);
+  return {
+    excerpts: ranked.map((source, index) => ({
+      id: index + 1,
+      title: source.title,
+      url: source.url,
+      type: source.type,
+      text: source.text.slice(0, 1_100)
+    })),
+    errors
+  };
+}
 async function requestGemini(model, topic, instructions, apiKey, schema = narrationSchema, maxOutputTokens = 4096) {
   let last;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -242,6 +424,16 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && url.pathname === '/api/styles') {
     return send(res, 200, styleCatalog.map(({ slug, en, cat_en, uses }) => ({ slug, name: en, category: cat_en, uses })));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/retrieve') {
+    let raw = '';
+    for await (const chunk of req) { raw += chunk; if (raw.length > 12_000_000) return send(res, 413, { error: 'Research sources are too large.' }); }
+    let body;
+    try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Send valid JSON research sources.' }); }
+    const topic = String(body.topic || '').trim();
+    if (!topic || topic.length > 180) return send(res, 400, { error: 'A valid topic is required for retrieval.' });
+    try { return send(res, 200, await retrieveSources(topic, body.sources, body.search === true)); }
+    catch (error) { return send(res, 502, { error: `Could not retrieve research sources: ${error.message}` }); }
   }
   if (req.method === 'POST' && url.pathname === '/api/generate') {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -351,4 +543,3 @@ function listenOn(port) {
   server.listen(port, '127.0.0.1', () => console.log(`Orbit is ready at http://127.0.0.1:${port}`));
 }
 listenOn(preferredPort);
-
