@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { inflateSync, inflateRawSync } from 'node:zlib';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+// Load local configuration without overwriting environment variables supplied by the shell.
 try {
   const localConfig = await readFile(path.join(root, '.env'), 'utf8');
   for (const line of localConfig.split(/\r?\n/)) {
@@ -17,6 +18,7 @@ const preferredPort = Number(process.env.PORT || 4173);
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 const styleCatalog = JSON.parse(await readFile(path.join(root, 'lemo-opuscar', 'styleboard', 'catalog.json'), 'utf8'));
 const styleBySlug = new Map(styleCatalog.map(style => [style.slug, style]));
+// This schema belongs to the legacy lesson endpoint; film generation uses its own prompt contract.
 const narrationSchema = {
   type: 'object', additionalProperties: false,
   properties: {
@@ -36,8 +38,7 @@ const film = (artStyle, components, connections, activeShots, cameras = ['wide',
   angles: ['front', 'three_quarter', 'side_left', 'overhead']
 });
 
-// Topic-specific authored scenes remain as a safe fallback when the model's
-// structured film treatment is incomplete.
+// Topic-specific authored scenes remain a safe fallback for the legacy lesson flow.
 const filmLibrary = [
   { match: /\b(cpu|processor|computer architecture|alu|registers?|cache|instructions?)\b/i, build: () => film('blueprint', [
     component('memory','MEMORY','Stores instructions and data','grid','pulse','blue',[-2.7,0,0],[1.25,1.1,1]),
@@ -368,7 +369,7 @@ async function requestGemini(model, topic, instructions, apiKey, schema = narrat
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST', headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ systemInstruction: { parts: [{ text: instructions }] }, contents: [{ role: 'user', parts: [{ text: `Explain: ${topic}` }] }], generationConfig: { responseMimeType: 'application/json', ...(schema ? { responseJsonSchema: schema } : {}), maxOutputTokens } }),
-        signal: AbortSignal.timeout(25000)
+        signal: AbortSignal.timeout(45000)
       });
       const payload = await response.json();
       if (response.ok) return { response, payload, model };
@@ -418,9 +419,15 @@ async function requestBytez(topic, instructions, apiKey) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    const ready = Boolean(process.env.BYTEZ_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.OPENAI_API_KEY);
-    const provider = process.env.BYTEZ_API_KEY ? 'Bytez' : process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY ? 'Gemini' : 'OpenAI';
-    return send(res, 200, { aiReady: ready, visualEngine: 'coded-film-director', provider });
+    const generationReady = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+    const lessonReady = Boolean(process.env.BYTEZ_API_KEY || generationReady || process.env.OPENAI_API_KEY);
+    return send(res, 200, {
+      aiReady: generationReady,
+      lessonReady,
+      ttsReady: Boolean(process.env.GNANI_API_KEY),
+      visualEngine: 'coded-film-director',
+      provider: generationReady ? 'Gemini' : null
+    });
   }
   if (req.method === 'GET' && url.pathname === '/api/styles') {
     return send(res, 200, styleCatalog.map(({ slug, en, cat_en, uses }) => ({ slug, name: en, category: cat_en, uses })));
@@ -435,6 +442,51 @@ const server = http.createServer(async (req, res) => {
     try { return send(res, 200, await retrieveSources(topic, body.sources, body.search === true)); }
     catch (error) { return send(res, 502, { error: `Could not retrieve research sources: ${error.message}` }); }
   }
+  if (req.method === 'POST' && url.pathname === '/api/tts') {
+    const apiKey = process.env.GNANI_API_KEY;
+    if (!apiKey) return send(res, 503, { error: 'Gnani TTS is not configured. Add GNANI_API_KEY to the local .env file.' });
+    let raw = '';
+    for await (const chunk of req) { raw += chunk; if (raw.length > 30_000) return send(res, 413, { error: 'Narration text is too long.' }); }
+    let body;
+    try { body = JSON.parse(raw || '{}'); } catch { return send(res, 400, { error: 'Send valid JSON narration text.' }); }
+    const text = String(body.text || '').trim();
+    const requestedLanguage = String(body.language || 'en-IN').slice(0, 20);
+    const language = requestedLanguage.includes('-') || !['en', 'hi', 'bn', 'gu', 'kn', 'ml', 'mr', 'ta', 'te'].includes(requestedLanguage)
+      ? requestedLanguage
+      : `${requestedLanguage}-IN`;
+    if (!text || text.length > 4_000) return send(res, 400, { error: 'Narration text is required and must be 4,000 characters or fewer.' });
+    try {
+      const response = await fetch('https://api.vachana.ai/api/v1/tts/inference', {
+        method: 'POST',
+        headers: { 'X-API-Key-ID': apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voice: process.env.GNANI_TTS_VOICE || 'Nalini',
+          model: process.env.GNANI_TTS_MODEL || 'timbre-v2.5',
+          language,
+          speed: Number(process.env.GNANI_TTS_SPEED || 1),
+          audio_config: { container: 'wav' }
+        }),
+        signal: AbortSignal.timeout(30_000)
+      });
+      const type = response.headers.get('content-type') || '';
+      if (!response.ok) {
+        const details = await response.text();
+        return send(res, response.status, { error: details.slice(0, 500) || `Gnani TTS returned HTTP ${response.status}.` });
+      }
+      if (type.includes('application/json')) {
+        const payload = await response.json();
+        const encoded = payload.audio || payload.audio_base64 || payload.data;
+        if (typeof encoded !== 'string') return send(res, 502, { error: 'Gnani TTS returned no audio.' });
+        return send(res, 200, { audio: encoded, contentType: payload.content_type || 'audio/wav' });
+      }
+      const audio = Buffer.from(await response.arrayBuffer());
+      res.writeHead(200, { 'content-type': type || 'audio/wav', 'cache-control': 'no-store' });
+      return res.end(audio);
+    } catch (error) {
+      return send(res, 502, { error: `Could not reach Gnani TTS: ${error.message}` });
+    }
+  }
   if (req.method === 'POST' && url.pathname === '/api/generate') {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) return send(res, 503, { error: 'Add GEMINI_API_KEY to the local .env file to generate a film.' });
@@ -445,7 +497,7 @@ const server = http.createServer(async (req, res) => {
     if (!prompt || prompt.length > 18_000) return send(res, 400, { error: 'A valid topic is required.' });
     try {
       const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
-      const result = await requestGemini(model, prompt, 'You are an educational whiteboard film director. Follow the user request exactly and return one valid JSON film plan.', apiKey, null, 8192);
+      const result = await requestGemini(model, prompt, 'You are an educational animated-film director. Follow the user request exactly and return one compact, valid JSON film plan. Prefer concise values and never stop before the closing brace.', apiKey, null, 16384);
       if (result.error) return send(res, 502, { error: 'Gemini could not be reached. Check your connection and try again.' });
       if (!result.response.ok) {
         const details = result.payload.error?.details?.map(item => item.message || item.reason).filter(Boolean).join(' ');
@@ -529,7 +581,9 @@ const server = http.createServer(async (req, res) => {
     } catch (error) { return send(res, 502, { error: `Could not prepare the lesson: ${error.message}` }); }
   }
   if (req.method === 'GET') {
-    const relative = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
+    let relative;
+    try { relative = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1)); }
+    catch { return send(res, 400, 'Invalid URL', 'text/plain; charset=utf-8'); }
     if (relative.split(/[\\/]/).some(part => part.startsWith('.'))) return send(res, 403, 'Forbidden', 'text/plain; charset=utf-8');
     const file = path.resolve(root, relative);
     if (!file.startsWith(path.resolve(root) + path.sep)) return send(res, 403, 'Forbidden', 'text/plain; charset=utf-8');

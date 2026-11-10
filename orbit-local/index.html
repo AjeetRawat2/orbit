@@ -148,6 +148,96 @@ body:before{transition:background .25s ease,color .25s ease,border-color .25s ea
 @media(max-width:780px){.settings-menu{position:fixed;right:12px;bottom:62px;width:min(280px,calc(100vw - 24px))}.player-settings{margin-left:auto}.wrap>header{padding-left:4px}}
 @media(prefers-reduced-motion:reduce){.wrap>*,.settings-menu{animation:none!important}.chip,.tbtn,.primary,.ghost,.stage,.card,ol.story button,.theme-toggle,.player-settings summary{transition:none!important}}
 html,body{max-width:100%;overflow-x:hidden}
+/* Reference-inspired Orbit studio theme. */
+:root{
+  --bg:#202833;--panel:#111820;--fg:#edf3f4;--muted:#9ba9ae;--line:#34414b;
+  --accent:#a9f3d2;--accent-fg:#15221f;--link:#9ae8ca;--chip:#27333d;--stage:#0c1115;
+  --top:#202833;--topline:transparent;color-scheme:dark;
+}
+body{background:radial-gradient(ellipse at 50% -30%,#2d3945 0,#202833 54%,#1d252e 100%);font-size:13px}
+body:before{content:"orbit";height:54px;padding:0 28px;background:transparent;border:0;color:#e8eeee;font:700 12px var(--f-display);letter-spacing:-.3px}
+.wrap{max-width:1240px;padding:70px 28px 34px;gap:14px}
+.wrap>header{display:block;text-align:center;padding:0;margin:0 auto 2px}
+.wrap>header .brandline{display:block}
+.wrap>header{position:relative}
+.wrap>header .brandline .theme-toggle{position:absolute;top:-58px;right:0;z-index:20;pointer-events:auto;border:1px solid #53616a;background:#172029;color:#e8eeee;font-size:10px;padding:5px 9px;min-height:0}
+.wrap>header:after{display:none}
+h1{font-size:clamp(3rem,7vw,5.1rem);line-height:.95;letter-spacing:-.07em;margin:0 auto 12px;color:#f1f5f4}
+.tag{font-size:13px;line-height:1.4;margin:0 auto;color:#aab8bc;max-width:48ch}
+.tag a{color:var(--link)}
+form{display:grid;grid-template-columns:minmax(0,1fr) auto;max-width:1120px;width:100%;background:transparent;border:0;padding:0;margin:12px auto 0;gap:8px;align-items:center}
+form .field{grid-column:1;grid-row:1}
+form #go{grid-column:2;grid-row:1}
+form #language{grid-column:1;grid-row:2}
+form #style{grid-column:2;grid-row:2}
+input[type=text]{height:44px;border-radius:9px;background:#10171e;border:1px solid #52616a;color:var(--fg);font-size:14px;padding-inline:16px}
+.primary{height:42px;border-radius:9px;background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:12px;padding:0 21px;box-shadow:0 7px 22px #8cebc522}
+.ghost{height:42px;border-radius:9px;background:transparent;border-color:var(--line)}
+.sel{height:32px;border-radius:8px;background:#10171e;border:1px solid #52616a;color:#e8eeee;font-size:11px}
+form .sel{height:30px;width:100%;border:1px solid #3e4d56;background:#17232c;color:#cbd6d8;padding:0 10px}
+form .sel option{background:#17232c;color:#eef4f3}
+.language-select{max-width:190px}
+#style{max-width:230px;justify-self:end}
+.language-select,#style{appearance:auto}
+:root[data-theme="light"]{
+  --bg:#edf3f0;--panel:#ffffff;--fg:#1a2929;--muted:#607171;--line:#cbd9d5;
+  --accent:#7eddbb;--accent-fg:#15312a;--link:#176b59;--chip:#dcebe6;--stage:#0c1115;
+  --top:#edf3f0;--topline:transparent;color-scheme:light;
+}
+:root[data-theme="light"] body{background:linear-gradient(180deg,#edf3f0 0,#e5efeb 100%);color:var(--fg)}
+:root[data-theme="light"] body:before{color:#243634}
+:root[data-theme="light"] h1{color:#1a2929}
+:root[data-theme="light"] .tag{color:#607171}
+:root[data-theme="light"] .status{color:#607171}
+:root[data-theme="light"] .primary{background:#7eddbb;color:#15312a}
+:root[data-theme="light"] .wrap>header .brandline .theme-toggle{background:#fff;color:#243634;border-color:#b9ccc6}
+:root[data-theme="light"] input[type=text]{background:#fff;border-color:#b7cbc4;color:#1a2929}
+:root[data-theme="light"] form .sel{background:#fff;border-color:#b7cbc4;color:#29413b}
+:root[data-theme="light"] form .sel option{background:#fff;color:#1a2929}
+:root[data-theme="light"] .research{background:#fff;border-color:#cbd9d5}
+:root[data-theme="light"] .chip{background:#dcebe6;border-color:#c3d9d1;color:#29413b}
+.research{max-width:860px;margin:0 auto;border-color:var(--line);background:#172029;border-radius:10px}
+.chips{justify-content:center;gap:6px;max-width:900px;margin:0 auto;overflow:visible}
+.chip{background:#26333d;border:1px solid #3c4a53;border-radius:999px;padding:5px 10px;color:#c5d0d2;font-size:10px;font-weight:500}
+.chip:hover{background:#33434d}
+.status{max-width:1120px;margin:2px auto 0;color:#9daab0;font-size:11px}
+.stage{border-radius:8px;border:1px solid #39464e;background:#090d10;box-shadow:0 16px 38px #05080b80}
+.transport{gap:7px;margin-top:-3px}
+.tbtn{height:28px;border-radius:14px;background:#293741;border:1px solid #3a4b55;padding:0 12px;font-size:11px;color:#e6eeee}
+.tbtn.play{background:var(--accent);color:#15221f;border-color:var(--accent);min-width:52px}
+.scrub{height:26px;accent-color:var(--accent)}
+.time{font-size:10px;color:#aab6b9;min-width:68px}
+.player-settings summary{height:28px;border-radius:14px;background:#293741;padding:0 10px;font-size:10px}
+.settings-menu{background:#172029;border-color:#43515a}
+.voicepick{background:#10171e}
+.lower{grid-template-columns:minmax(0,1.35fr) minmax(300px,.8fr);gap:22px;margin-top:3px}
+h2{font-size:13px;text-transform:none;color:#edf3f4;margin-bottom:8px}
+ol.story{gap:2px}
+ol.story button{background:transparent;border:0;border-radius:7px;padding:7px 8px;grid-template-columns:26px minmax(0,1fr);color:#d8e1e2}
+ol.story button:hover{background:#29343d}
+ol.story button[aria-current=true]{background:#29343d;box-shadow:inset 2px 0 var(--accent)}
+ol.story .n{font-size:9px;color:#839399}
+ol.story .tx{font-size:11px;line-height:1.3}
+ol.story .meta{font-size:9px;color:#839399}
+.notes{gap:9px}
+.card{background:#172029;border:1px solid #3b4851;border-radius:8px;padding:12px 13px}
+.card h2{font-size:13px}
+.card p{font-size:11px;line-height:1.4}
+.facts,.how{font-size:10px}
+.cast{gap:4px}.member{font-size:10px}.dot{width:9px;height:9px;flex-basis:9px;border-width:1px}
+footer{font-size:10px;color:#849298;border-top-color:#34414b}
+@media(max-width:780px){
+  body:before{padding-left:16px}.wrap{padding:64px 14px 26px}
+  form{max-width:none}
+  .wrap>header .brandline .theme-toggle{right:0;top:-45px}
+  h1{font-size:clamp(2.8rem,13vw,4.2rem)}
+  form{grid-template-columns:minmax(0,1fr) auto}
+  form .field{grid-column:1;grid-row:1}.primary{width:auto}.ghost{width:auto}
+  form #language{grid-column:1;grid-row:2;width:100%;max-width:none}
+  form #style{grid-column:2;grid-row:2;width:100%;max-width:180px}
+  .chips{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}
+  .chip{flex:0 0 auto}.lower{grid-template-columns:1fr}
+}
 @media(max-width:600px){
   body{font-size:14px}
   body:before{height:54px;padding-inline:14px;font-size:19px}
@@ -156,9 +246,12 @@ html,body{max-width:100%;overflow-x:hidden}
   .brandline{gap:8px}h1{font-size:22px}
   .theme-toggle{font-size:12px;padding:7px 11px;min-height:38px}
   .tag{font-size:12px;line-height:1.45}
-  form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:9px;border-radius:12px}
-  .field,#style,#go{grid-column:1/-1;width:100%;max-width:none}
-  input[type=text],.sel{height:44px;min-width:0;font-size:14px}
+  form{grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:0;border-radius:12px}
+  .field{grid-column:1!important;grid-row:1!important;width:auto}
+  #language,#style{grid-row:2!important;width:100%;max-width:none!important}
+  #language{grid-column:1!important}.primary{grid-column:2!important;grid-row:1!important}
+  input[type=text]{height:44px;min-width:0;font-size:14px}
+  form .sel{height:36px;font-size:12px}
   .primary,.ghost{height:42px;width:100%;padding-inline:10px;font-size:13px}
   .chips{gap:8px;margin-inline:-1px;padding:1px 1px 5px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
   .chip{font-size:12px;padding:8px 11px;scroll-snap-align:start}
@@ -202,12 +295,25 @@ html,body{max-width:100%;overflow-x:hidden}
 
 <div class="wrap">
   <header>
-    <div class="brandline"><h1>Orbit</h1><button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode">☀ Light mode</button></div>
-    <p class="tag">Type a topic and Gemini directs a short animated explainer: a cast of characters who walk, react and talk, with objects that move, charts that grow and a camera that pushes in. Everything is drawn in code, with narration, sound effects and a small score. Built on the film method from <a href="https://github.com/lemomo-ai/lemo-opuscar" target="_blank" rel="noopener">Lemo-Opuscar</a>.</p>
+    <div class="brandline"><h1>See the big idea.</h1><button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode">☀ Light mode</button></div>
+    <p class="tag">Give any topic a little space to come alive.</p>
   </header>
 
   <form id="f" autocomplete="off">
     <div class="field"><input type="text" id="topic" maxlength="140" placeholder="How does a vaccine protect us?" aria-label="Topic for the film"></div>
+    <select id="language" class="sel language-select" aria-label="Film language">
+      <option value="en">Language: English</option>
+      <option value="hi">Language: Hindi</option>
+      <option value="bn">Language: Bengali</option>
+      <option value="gu">Language: Gujarati</option>
+      <option value="kn">Language: Kannada</option>
+      <option value="ml">Language: Malayalam</option>
+      <option value="mr">Language: Marathi</option>
+      <option value="ta">Language: Tamil</option>
+      <option value="te">Language: Telugu</option>
+      <option value="es">Language: Spanish</option>
+      <option value="fr">Language: French</option>
+    </select>
     <select id="style" class="sel" aria-label="Film style"></select>
     <button class="primary" id="go" type="submit">Make the film</button>
     <button class="ghost" id="stop" type="button" hidden>Stop</button>
@@ -262,10 +368,6 @@ html,body{max-width:100%;overflow-x:hidden}
         <button class="setting-action" id="mini" type="button">▣ Mini player</button>
         <div class="settings-divider"></div>
         <button class="setting-action" id="voice" type="button" aria-pressed="true">Voice on</button>
-        <label class="setting-label" for="voiceChoice">Narrator voice</label>
-        <select id="voiceChoice" class="sel voicepick" aria-label="Narrator voice" title="Narrator voice">
-          <option value="browser:auto">Browser default voice</option>
-        </select>
         <button class="setting-action" id="snd" type="button" aria-pressed="true">Sound on</button>
       </div>
     </details>
@@ -284,20 +386,43 @@ html,body{max-width:100%;overflow-x:hidden}
           <li>Gemini casts the characters and writes the scenes: a hook, one turn where the music drops out, and an ending that echoes the start.</li>
           <li>The page animates a rigged cast (a robot host, people, blobs for cells and atoms) and about forty moving objects.</li>
           <li>The director picks one of 60 looks from the Lemo-Opuscar library to fit the topic (a blueprint for machines, a microscope for cells, ink wash for calm, a dossier for mysteries), or you choose one from the Style menu and switch it any time.</li>
-          <li>Every frame is a pure function of time, so you can scrub anywhere. Sound effects and score run in your browser. Choose any narrator voice installed in your browser or operating system.</li>
+          <li>Every frame is a pure function of time, so you can scrub anywhere. Sound effects and score run in your browser. Narration uses Gnani when configured, with the browser default voice as fallback.</li>
         </ol>
         <p class="facts" id="facts" style="margin-top:10px"></p>
       </div>
     </section>
   </div>
 
-  <footer>Method and guides from <a href="https://github.com/lemomo-ai/lemo-opuscar" target="_blank" rel="noopener">lemomo-ai/lemo-opuscar</a> (code and docs MIT). All characters here are original designs. Narration uses your selected browser voice and is not part of a saved file.</footer>
+  <footer>Method and guides from <a href="https://github.com/lemomo-ai/lemo-opuscar" target="_blank" rel="noopener">lemomo-ai/lemo-opuscar</a> (code and docs MIT). All characters here are original designs. Choose a film language above; Gnani narration is included in WebM exports when configured.</footer>
 </div>
 <video id="miniFeed" class="mini-feed" muted playsinline aria-hidden="true"></video>
+
+<!-- Theme preference is initialized independently so it works before the player loads. -->
+<script>
+(() => {
+  const button = document.getElementById('themeToggle');
+  if (!button) return;
+  const applyTheme = theme => {
+    const light = theme === 'light';
+    document.documentElement.dataset.theme = light ? 'light' : 'dark';
+    document.documentElement.style.colorScheme = light ? 'light' : 'dark';
+    button.textContent = light ? '☾ Dark mode' : '☀ Light mode';
+    button.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+    try { localStorage.setItem('orbit-theme', light ? 'light' : 'dark'); } catch {}
+  };
+  let saved = 'dark';
+  try { saved = localStorage.getItem('orbit-theme') === 'light' ? 'light' : 'dark'; } catch {}
+  applyTheme(saved);
+  button.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  });
+})();
+</script>
 
 <script>
 (() => {
 'use strict';
+// The renderer stays dependency-free so films can be scrubbed and exported locally.
 const W = 1280, H = 720, GROUND = 560, TR = 0.6;
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d');
@@ -1195,13 +1320,30 @@ function drawScene(g, sc, tl, dx){
 }
 /* ---------- audio: sound effects and a small score ---------- */
 const AU = {
-  ac: null, master: null, nodes: [], noise: null, recDest: null,
+  ac: null, master: null, nodes: [], narrationSources: [], noise: null, recDest: null, narrationBuffers: null,
   ensure(){ if (!this.ac){ const C = window.AudioContext || window.webkitAudioContext; if (!C) return false; this.ac = new C(); const b = this.ac.createBuffer(1, this.ac.sampleRate*2, this.ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1; this.noise = b; } if (this.ac.state === 'suspended') this.ac.resume(); return true; },
-  stop(){ if (!this.master) return; const m = this.master, ns = this.nodes, ac = this.ac; try { m.gain.cancelScheduledValues(ac.currentTime); m.gain.setTargetAtTime(0, ac.currentTime, .015); } catch {} setTimeout(() => { ns.forEach(n => { try { n.stop(); } catch {} }); try { m.disconnect(); } catch {} }, 120); this.master = null; this.nodes = []; },
+  stop(){
+    const ac = this.ac;
+    if (!ac) return;
+    for (const source of this.narrationSources) { try { source.stop(); } catch {} }
+    this.narrationSources = [];
+    if (!this.master) return;
+    const m = this.master, ns = this.nodes;
+    try { m.gain.cancelScheduledValues(ac.currentTime); m.gain.setTargetAtTime(0, ac.currentTime, .015); } catch {}
+    setTimeout(() => { ns.forEach(n => { try { n.stop(); } catch {} }); try { m.disconnect(); } catch {} }, 120);
+    this.master = null; this.nodes = [];
+  },
   start(from){
-    this.stop(); if (!state.sound || !this.ensure()) return;
+    this.stop(); if (!this.ensure() || (!state.sound && !(this.narrationBuffers && state.exporting && state.voice))) return;
     const ac = this.ac, m = ac.createGain(), comp = ac.createDynamicsCompressor(); m.gain.value = 1; m.connect(comp); comp.connect(ac.destination); if (this.recDest) comp.connect(this.recDest);
     this.master = m; this.nodes = []; const base = ac.currentTime + .06 - from, at = t => base + t, keep = n => { this.nodes.push(n); return n; };
+    if (this.narrationBuffers && state.exporting && state.voice) {
+      const narrationGain = ac.createGain(); narrationGain.gain.value = 1; narrationGain.connect(comp);
+      this.narrationBuffers.forEach(({ start, buffer }) => {
+        const source = ac.createBufferSource(); source.buffer = buffer; source.connect(narrationGain);
+        source.start(at(start)); this.narrationSources.push(source);
+      });
+    }
     const osc = (type, f0, f1, t0, d, v) => { const o = keep(ac.createOscillator()), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, at(t0)); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, at(t0 + d)); g.gain.setValueAtTime(0, at(t0)); g.gain.linearRampToValueAtTime(v, at(t0) + .006); g.gain.exponentialRampToValueAtTime(.0004, at(t0 + d)); o.connect(g); g.connect(m); o.start(at(t0)); o.stop(at(t0 + d) + .05); };
     const nz = (t0, d, f0, f1, v, q) => { const s = keep(ac.createBufferSource()), bp = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = this.noise; s.loop = true; s.start(at(t0), Math.random()); s.stop(at(t0 + d) + .05); bp.type = 'bandpass'; bp.Q.value = q || .8; bp.frequency.setValueAtTime(f0, at(t0)); bp.frequency.linearRampToValueAtTime(f1, at(t0 + d)); g.gain.setValueAtTime(0, at(t0)); g.gain.linearRampToValueAtTime(v, at(t0 + d*.4)); g.gain.linearRampToValueAtTime(0, at(t0 + d)); s.connect(bp); bp.connect(g); g.connect(m); };
     const SFX = {
@@ -1229,35 +1371,68 @@ const AU = {
   }
 };
 
-/* ---------- narration ---------- */
+/* ---------- narration: Gnani first, browser speech as fallback ---------- */
 let spokenIdx = -1;
-const cancelSpeech = () => { try { speechSynthesis.cancel(); } catch {} };
-function populateVoiceChoices(){
-  if (!('speechSynthesis' in window)) return;
-  const sel = $('voiceChoice'), selected = sel.value || 'browser:auto', voices = speechSynthesis.getVoices();
-  const groups = new Map();
-  for (const voice of voices){ const lang = voice.lang || 'Other'; if (!groups.has(lang)) groups.set(lang, []); groups.get(lang).push(voice); }
-  sel.replaceChildren(new Option('Browser default voice', 'browser:auto'));
-  for (const [lang, list] of [...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
-    const group = document.createElement('optgroup'); group.label = lang;
-    for (const v of list.sort((a,b)=>a.name.localeCompare(b.name))) group.appendChild(new Option(v.name + (v.default ? ' · default' : ''), 'browser:' + v.voiceURI));
-    sel.appendChild(group);
-  }
-  if ([...sel.options].some(o => o.value === selected)) sel.value = selected;
-  else sel.value = 'browser:auto';
+let gnaniTtsReady = false, gnaniAudio = null, gnaniRequest = 0;
+const ttsLanguage = language => language.includes('-') ? language : ['en','hi','bn','gu','kn','ml','mr','ta','te'].includes(language) ? `${language}-IN` : language;
+async function fetchGnaniAudio(text, language){
+  const response = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text, language: ttsLanguage(language) })
+  });
+  if (!response.ok) throw new Error('Gnani TTS returned ' + response.status);
+  const contentType = response.headers.get('content-type') || 'audio/wav';
+  if (!contentType.includes('application/json')) return response.blob();
+  const payload = await response.json();
+  const encoded = payload.audio || payload.audio_base64 || payload.data;
+  if (!encoded) throw new Error('Gnani TTS returned no audio');
+  const binary = atob(encoded.replace(/^data:.*?;base64,/, ''));
+  const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+  return new Blob([bytes], { type: payload.contentType || 'audio/wav' });
 }
-function speak(text){
-  if (!state.voice || !('speechSynthesis' in window) || !text) return; cancelSpeech();
+async function prepareExportNarration(){
+  if (!gnaniTtsReady || !state.voice) return null;
+  const language = film.spec.lang || 'en-IN', buffers = [];
+  for (const scene of film.scenes){
+    if (!scene.text) continue;
+    const blob = await fetchGnaniAudio(scene.text, language);
+    const data = await blob.arrayBuffer();
+    buffers.push({ start: scene.start + scene.speakAt, buffer: await AU.ac.decodeAudioData(data) });
+  }
+  return buffers;
+}
+const cancelSpeech = () => {
+  try { speechSynthesis.cancel(); } catch {}
+  gnaniRequest++;
+  if (gnaniAudio){ gnaniAudio.pause(); gnaniAudio.removeAttribute('src'); gnaniAudio.load(); gnaniAudio = null; }
+};
+async function speak(text){
+  if (!state.voice || !text) return;
+  cancelSpeech();
+  const request = gnaniRequest;
+  if (gnaniTtsReady){
+    try {
+      const blob = await fetchGnaniAudio(text, film.spec.lang || 'en-IN');
+      if (request !== gnaniRequest || !state.voice) return;
+      gnaniAudio = new Audio(URL.createObjectURL(blob));
+      gnaniAudio.onended = () => { URL.revokeObjectURL(gnaniAudio.src); gnaniAudio = null; };
+      await gnaniAudio.play();
+      return;
+    } catch (error) {
+      if (request !== gnaniRequest) return;
+      setStatus('Gnani narration unavailable; using the browser voice.');
+    }
+  }
+  if (!('speechSynthesis' in window)) return;
+  cancelSpeech();
   const u = new SpeechSynthesisUtterance(text); u.lang = film.spec.lang || 'en'; u.rate = 1.03;
-  const available = speechSynthesis.getVoices(), choice = $('voiceChoice').value;
-  if (choice && choice !== 'browser:auto'){ const selected = available.find(v => 'browser:' + v.voiceURI === choice); if (selected) u.voice = selected; }
-  else { const matching = available.filter(v => v.lang && v.lang.toLowerCase().startsWith(u.lang.toLowerCase().slice(0, 2))); if (matching.length) u.voice = matching.find(v => v.localService) || matching[0]; }
   speechSynthesis.speak(u);
 }
 
-/* ---------- player ---------- */
+/* ---------- player state and controls ---------- */
 const state = { t: 0, playing: false, voice: true, sound: true, dirty: true, last: 0, exporting: false };
-const ui = { play: $('play'), scrub: $('scrub'), time: $('time'), voice: $('voice'), voiceChoice: $('voiceChoice'), snd: $('snd'), save: $('save'), story: $('story'), status: $('status'), stxt: $('stxt'), bari: $('bari'), stage: $('stage'), transport: $('transport') };
+const ui = { play: $('play'), scrub: $('scrub'), time: $('time'), voice: $('voice'), snd: $('snd'), save: $('save'), story: $('story'), status: $('status'), stxt: $('stxt'), bari: $('bari'), stage: $('stage'), transport: $('transport') };
 function setStatus(msg, busy, pct){ ui.stxt.textContent = msg; ui.status.classList.toggle('busy', !!busy); ui.bari.style.width = (pct || 0) + '%'; }
 let controlsHideTimer = null;
 function revealFullscreenControls(){
@@ -1271,13 +1446,6 @@ function syncFullscreenLayout(){
   else { ui.stage.classList.remove('controls-hidden'); ui.stage.parentNode.insertBefore(ui.transport, ui.stage.nextSibling); try { screen.orientation?.unlock?.(); } catch {} }
   $('fullscreen').textContent = full ? '⛶ Exit full screen' : '⛶ Full screen';
 }
-function setTheme(theme){
-  document.documentElement.dataset.theme = theme;
-  const light = theme === 'light'; $('themeToggle').textContent = light ? '☾ Dark mode' : '☀ Light mode';
-  $('themeToggle').setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
-  try { localStorage.setItem('orbit-theme', theme); } catch {}
-}
-try { setTheme(localStorage.getItem('orbit-theme') === 'light' ? 'light' : 'dark'); } catch { setTheme('dark'); }
 let miniStream = null;
 function stopMiniStream(){ if (miniStream){ miniStream.getTracks().forEach(t => t.stop()); miniStream = null; } $('miniFeed').srcObject = null; }
 async function openMiniPlayer(){
@@ -1437,9 +1605,10 @@ function autoStyle(spec){
   return best;
 }
 const styleCatalog = () => STORDER.map(k => `${k}: ${ST[k].name} (${ST[k].use})`).join('\n');
-const DIRECTOR_PROMPT = (topic, choice, research = {}) => `You are the director of a short animated explainer film. An original cast of animated characters and objects acts out the idea; it is not a slideshow.
+const DIRECTOR_PROMPT = (topic, choice, language = 'en', research = {}) => `You are the director of a short animated explainer film. An original cast of animated characters and objects acts out the idea; it is not a slideshow.
 
 TOPIC: ${JSON.stringify(topic)}
+OUTPUT LANGUAGE: ${JSON.stringify(language)}. Write every narration, visible label, speech bubble, title, logline, and closing line in this language. Set "lang" to exactly "${language}".
 
 RESEARCH GROUNDING
 ${research.mode === 'provided'
@@ -1456,9 +1625,9 @@ Return ONLY one JSON object. No prose, no code fences.
 
 DIRECTING RULES (from the Lemo-Opuscar DIRECTOR.md)
 - One subject, one goal, one turn. Open on one object or person the viewer knows, never on a definition.
-- 6 to 8 scenes, one idea each. Put the surprise or twist in scene 4 or 5 and set "silence": true there (the music drops out and the narrator waits a beat). The last scene echoes the first.
-- Show the idea happening: characters do things (act), react (emote), talk (bubble), objects move, orbit, drop in, grow; numbers count up and bars rise. Max 2 text labels per scene; let motion explain.
-- Narration: 1-2 short spoken sentences per scene, at most 26 words, concrete, with real numbers only where you are sure. Write it in the language of the topic and set "lang" to its BCP-47 code ("en", "hi", "es"...).
+- 6 scenes, one idea each. Put the surprise or twist in scene 4 or 5 and set "silence": true there (the music drops out and the narrator waits a beat). The last scene echoes the first.
+- Show the idea happening: characters do things (act), react (emote), talk (bubble), objects move, orbit, drop in, grow; numbers count up and bars rise. Use at most 10 items and 2 text labels per scene; let motion explain.
+- Narration: 1 short spoken sentence per scene, at most 20 words, concrete, with real numbers only where you are sure. Write it in the language of the topic and set "lang" to its BCP-47 code ("en", "hi", "es"...).
 - CAST: define 2 or 3 recurring characters in "cast" and reuse their ids in every scene. Always include the host robot (who "bot", id "orbi"), who narrates in most scenes (set "talks": true on the narrating character; its mouth moves while the narration plays). Add a "person" for relatable stories, or a "blob" for germs, cells, electrons, coins or ideas (add "spikes":true for a germ).
 - Vary framing: change bg between scenes, use different camera moves ("cam").
 
@@ -1525,8 +1694,10 @@ async function generate(topic){
   try {
     let n = 0;
     const research = await collectResearch(topic, ctl.signal);
-    const raw = await sample.json(DIRECTOR_PROMPT(topic, $('style').value, research), { signal: ctl.signal, cache: false, modelTier: 'default', onText: ({ text }) => { n = text.length; setStatus('Directing the film… ' + n + ' characters', true, Math.min(95, 8 + n/70)); } });
+    const language = $('language').value;
+    const raw = await sample.json(DIRECTOR_PROMPT(topic, $('style').value, language, research), { signal: ctl.signal, cache: false, modelTier: 'default', onText: ({ text }) => { n = text.length; setStatus('Directing the film… ' + n + ' characters', true, Math.min(95, 8 + n/70)); } });
     const spec = normalize(raw); if (!spec) throw { code: 'invalid_json' };
+    spec.lang = language;
     spec.research = research; loadSpec(spec, { autoplay: true }); setStatus('Playing "' + spec.title + '" · ' + spec.scenes.length + ' scenes');
   } catch (e) {
     const partial = e && e.text ? normalize(tryParse(e.text)) : null;
@@ -1535,17 +1706,27 @@ async function generate(topic){
   } finally { busy = false; $('go').disabled = false; $('stop').hidden = true; ui.status.classList.remove('busy'); ctl = null; }
 }
 
-/* ---------- saving the film as a video (effects and score, no narration) ---------- */
+/* ---------- real-time WebM export ---------- */
 let recorder = null, chunks = [];
 const canRecord = () => !!(downloads && window.MediaRecorder && cv.captureStream && (window.AudioContext || window.webkitAudioContext));
-function startExport(){
+async function startExport(){
   if (!canRecord() || state.exporting) return; pause(); AU.ensure();
+  AU.narrationBuffers = null;
+  if (gnaniTtsReady && state.voice){
+    try {
+      setStatus('Preparing narration for export…', true, 0);
+      AU.narrationBuffers = await prepareExportNarration();
+    } catch (error) {
+      setStatus('Could not prepare Gnani narration: ' + (error.message || 'unknown error'));
+      return;
+    }
+  }
   const dest = AU.ac.createMediaStreamDestination(); AU.recDest = dest;
   const stream = new MediaStream([...cv.captureStream(30).getVideoTracks(), ...dest.stream.getAudioTracks()]);
   const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m));
-  try { recorder = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 5e6 } : undefined); } catch { setStatus('This browser cannot record the film.'); AU.recDest = null; return; }
+  try { recorder = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 5e6 } : undefined); } catch { setStatus('This browser cannot record the film.'); AU.recDest = null; AU.narrationBuffers = null; return; }
   chunks = []; recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-  recorder.onstop = async () => { AU.recDest = null; state.exporting = false; ui.save.disabled = false; ui.save.textContent = 'Save film'; const blob = new Blob(chunks, { type: 'video/webm' }), name = (film.spec.title || 'film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'film'; try { await downloads.save({ filename: name + '.webm', data: blob }); setStatus('Film saved.'); } catch (e) { setStatus(e && e.code === 'declined' ? 'Save cancelled.' : 'Saving is not available here.'); } };
+  recorder.onstop = async () => { AU.recDest = null; AU.narrationBuffers = null; state.exporting = false; ui.save.disabled = false; ui.save.textContent = 'Save film'; const blob = new Blob(chunks, { type: 'video/webm' }), name = (film.spec.title || 'film').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'film'; try { await downloads.save({ filename: name + '.webm', data: blob }); setStatus('Film saved.'); } catch (e) { setStatus(e && e.code === 'declined' ? 'Save cancelled.' : 'Saving is not available here.'); } };
   state.exporting = true; ui.save.disabled = true; ui.save.textContent = 'Recording…'; setStatus('Recording in real time (' + fmt(film.DUR) + '). Keep this tab open.');
   state.t = 0; state.dirty = true; recorder.start(500); play();
 }
@@ -1557,12 +1738,8 @@ $('stop').addEventListener('click', () => ctl && ctl.abort());
 $('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; $('topic').value = b.dataset.topic; generate(b.dataset.topic); });
 ui.play.addEventListener('click', () => state.playing ? pause() : play());
 ui.scrub.addEventListener('input', () => seek(ui.scrub.value/1000*film.DUR));
-populateVoiceChoices();
-if ('speechSynthesis' in window) speechSynthesis.addEventListener('voiceschanged', populateVoiceChoices);
 ui.voice.addEventListener('click', () => { state.voice = !state.voice; ui.voice.setAttribute('aria-pressed', state.voice); ui.voice.textContent = state.voice ? 'Voice on' : 'Voice off'; if (!state.voice) cancelSpeech(); else spokenIdx = -1; });
-ui.voiceChoice.addEventListener('change', () => { cancelSpeech(); spokenIdx = -1; const v = speechSynthesis.getVoices().find(x => 'browser:' + x.voiceURI === ui.voiceChoice.value); if (state.playing) setStatus(v ? 'Narrator voice: ' + v.name : 'Using the best voice for this film’s language.'); });
 ui.snd.addEventListener('click', () => { state.sound = !state.sound; ui.snd.setAttribute('aria-pressed', state.sound); ui.snd.textContent = state.sound ? 'Sound on' : 'Sound off'; if (state.playing) AU.start(state.t); else AU.stop(); });
-$('themeToggle').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'));
 $('theatre').addEventListener('click', e => { const on = document.body.classList.toggle('theater'); e.currentTarget.setAttribute('aria-pressed', on); e.currentTarget.textContent = on ? '▱ Exit theatre mode' : '▰ Theatre mode'; $('playerSettings').open = false; });
 $('fullscreen').addEventListener('click', async () => {
   try {
@@ -1586,7 +1763,7 @@ document.addEventListener('keydown', e => { if (e.code === 'Space' && !/INPUT|TE
 (() => { const sel = $('style'); const o0 = document.createElement('option'); o0.value = 'auto'; o0.textContent = 'Style: match the content'; sel.appendChild(o0); const cats = {}; STORDER.forEach(k => { const c = ST[k].cat; (cats[c] = cats[c] || []).push(k); }); Object.keys(cats).forEach(c => { const og = document.createElement('optgroup'); og.label = c; cats[c].forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = ST[k].name; og.appendChild(o); }); sel.appendChild(og); }); })();
 $('style').addEventListener('change', () => { if (film) restyle(); });
 $('shuf').addEventListener('click', () => { const ids = STORDER.filter(k => k !== STY.id); $('style').value = ids[Math.floor(Math.random()*ids.length)]; restyle(); });
-window.__orbit = { auto: t => autoStyle({ title: t, logline: "", scenes: [] }), prompt: t => DIRECTOR_PROMPT(t, "auto"), scenes: () => film.scenes.map(s => [+s.start.toFixed(1), +s.dur.toFixed(1), s.bg, s.kind]), style: id => { $('style').value = id; restyle(); }, ids: STORDER, ms: () => perf.ema, load: s => { loadSpec(normalize(s)); }, seek: t => { state.t = t; state.dirty = true; }, props: PROPNAMES };
+window.__orbit = { auto: t => autoStyle({ title: t, logline: "", scenes: [] }), prompt: t => DIRECTOR_PROMPT(t, "auto", $('language').value), scenes: () => film.scenes.map(s => [+s.start.toFixed(1), +s.dur.toFixed(1), s.bg, s.kind]), style: id => { $('style').value = id; restyle(); }, ids: STORDER, ms: () => perf.ema, load: s => { loadSpec(normalize(s)); }, seek: t => { state.t = t; state.dirty = true; }, props: PROPNAMES };
 
 (async () => {
   loadSpec(normalize(SAMPLE));
@@ -1596,6 +1773,8 @@ window.__orbit = { auto: t => autoStyle({ title: t, logline: "", scenes: [] }), 
     try {
       const r = await fetch('/api/health');
       if (r.ok){
+        const health = await r.json();
+        gnaniTtsReady = health.ttsReady === true;
         sample = { json: async (prompt, o = {}) => {
           let res; try { res = await fetch('/api/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }), signal: o.signal }); } catch (e){ if (e && e.name === 'AbortError') throw { code: 'cancelled' }; throw e; }
           const j = await res.json().catch(() => ({})); if (!res.ok) throw { code: 'error', message: j.error || ('server answered ' + res.status) };

@@ -1,61 +1,134 @@
 # Orbit
 
-Orbit turns a topic into a short animated explainer film. Gemini directs a recurring cast of characters and props, then the browser renders them in code with scene actions, camera moves, narration, sound effects, and a light score. Films include style selection, playback controls, a storyboard, theatre/fullscreen/mini-player viewing, and WebM export.
+Orbit turns a topic into a short animated explainer film. Gemini plans the film, and Orbit renders the characters, props, camera movement, captions, narration, music, and sound effects directly in the browser.
 
-## Run locally
+## Quick start
 
-### Requirements
+### You need
 
-- Node.js 20 or newer
+- [Node.js 20 or newer](https://nodejs.org/)
+- A modern browser, such as Chrome or Edge
 - A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
-- A modern browser such as Chrome or Edge
+- Optional: a Gnani API key for higher-quality narration
 
-### Setup
+### 1. Open the Orbit folder
 
-1. Download or clone this repository, then open a terminal in the `orbit-local` folder.
-2. Copy `.env.example` to `.env`.
+In a terminal, move into this folder:
 
-   **Windows PowerShell:**
+```text
+orbit/orbit-local
+```
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+### 2. Create your environment file
 
-   **macOS / Linux:**
+Copy the example file:
 
-   ```sh
-   cp .env.example .env
-   ```
+**Windows PowerShell**
 
-3. Open `.env` in a text editor and put your key after `GEMINI_API_KEY=`. Keep this file private; it is excluded from Git.
-4. Start the app:
+```powershell
+Copy-Item .env.example .env
+```
 
-   ```sh
-   node server.mjs
-   ```
+**macOS or Linux**
 
-5. Open the local address printed in the terminal. The default is `http://127.0.0.1:4173/`.
+```sh
+cp .env.example .env
+```
 
-No package installation is needed. The server uses Node's built-in modules. The sample film can play without an API key, but generating a new film needs one. Set `GEMINI_MODEL` in `.env` if you want to use a different Gemini model. Set `PORT` to choose a preferred port; if it is busy, Orbit tries the next one.
+Open `.env` and add your Gemini key:
 
-## What to expect
+```env
+GEMINI_API_KEY=your_gemini_key_here
+```
 
-- The browser's built-in voice narrates the film during playback.
-- Narration uses the selected browser voice; the automatic choice avoids voices named Dave or David when another compatible voice is available.
-- WebM export records the canvas and generated audio. Browser speech is not included in the saved video.
-- Generated scenes use the friend-provided coded-film method: a recurring cast, animated props, speech bubbles and labels, scene-specific backgrounds, camera moves, and deterministic time-based rendering. The implementation is dependency-free and runs on the browser Canvas.
-- The style menu contains the integrated Lemo-Opuscar-inspired visual library. Orbit can match a style to the topic, or you can choose a style and switch it without regenerating the film.
-- The player includes theatre mode, browser fullscreen, and a mini-player where Picture-in-Picture is supported.
-- The optional **Ground the film in your sources** panel supports pasted notes, local plain-text/Markdown/PDF files, user-entered web URLs, and best-effort public web search. Orbit extracts text from common text-based PDFs and ranks short local excerpts by topic before sending them to Gemini, so no vector database or embedding service is required.
-- The research scope can be set to **Use only my provided material**, which prevents supplemental web search and instructs Gemini not to add unsupported outside facts, or **Allow Gemini to add online context**.
-- Source use is configurable: research can remain internal, be named in the ending, or be attributed briefly in narration. Retrieval is bounded and web search may be unavailable when a public search endpoint blocks local requests.
-- PDF files are supported when they contain selectable text. Scanned or image-only PDFs are reported as unsupported because they require OCR; Orbit does not currently run OCR or send documents to a paid OCR service.
-- If a scanned PDF is needed, use a text-based export or OCR it locally first, then upload the resulting searchable PDF or text file.
-- Fonts load from Google Fonts, so the hand-drawn type styling needs an internet connection.
-- The film drawing method is inspired by [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar). Its style catalog is included under `lemo-opuscar/styleboard/`.
-- The friend’s notes referred to the Lemo-Opuscar director method, but no separate skill file or installable skill package was included. The relevant directing rules are integrated into Orbit’s Gemini prompt; no additional skill is required to run the app.
-- The friend’s version did not include Orbit’s source-grounded RAG workflow. The merged version retains pasted notes, TXT/Markdown/PDF files, URLs, bounded public search, source ranking, research-scope controls, citation modes, and visible generated-film source lists.
+Gnani is optional. Add it if you want Gnani narration during playback and in exported videos:
 
-## Keep API keys safe
+```env
+GNANI_API_KEY=your_gnani_key_here
+```
 
-Never paste an API key into `index.html`, commit `.env`, or share it publicly. The local server reads the key from `.env` and sends requests to Gemini; the key is not sent to browser code. If a key was exposed, revoke it in Google AI Studio and create a replacement.
+Keep `.env` private. It is excluded from Git.
+
+### 3. Start Orbit
+
+```sh
+node server.mjs
+```
+
+Open [http://127.0.0.1:4173/](http://127.0.0.1:4173/) in your browser.
+
+No package installation is required. Orbit uses Node.js built-in modules.
+
+## Make a film
+
+1. Enter a topic, or choose one of the example topics.
+2. Select a language.
+3. Select a visual style, or leave it on automatic matching.
+4. Optionally open **Ground the film in your sources** to add notes, files, URLs, or web research.
+5. Click **Make the film**.
+6. Use the player controls to play, pause, scrub, change the theme, enter theatre/fullscreen mode, or open the mini-player.
+
+Supported language choices include English, Hindi, Bengali, Gujarati, Kannada, Malayalam, Marathi, Tamil, Telugu, Spanish, and French. Gemini generates the film text in the selected language, and Gnani uses it for narration when available.
+
+## Narration and export
+
+- With `GNANI_API_KEY`, Orbit uses Gnani Timbre TTS for narration.
+- Without Gnani, playback falls back to the browser's default speech voice.
+- The **Voice on/off** control affects playback and export.
+- WebM export includes the canvas, music, sound effects, and Gnani narration when Gnani is configured and Voice is enabled.
+- Browser speech is playback-only and cannot be captured into a WebM file.
+
+## Source-grounded films
+
+The optional research panel supports:
+
+- Pasted notes
+- TXT and Markdown files
+- Text-based PDFs
+- User-entered web URLs
+- Best-effort public web search
+
+Orbit ranks relevant excerpts locally before sending them to Gemini. It does not require a vector database or embedding service.
+
+You can choose whether Gemini should:
+
+- Use only the material you provided
+- Add online context
+
+Sources can stay internal, appear in an ending note, or be mentioned briefly in narration.
+
+### PDF limitations
+
+Orbit can extract selectable text from common PDFs. Scanned or image-only PDFs require OCR, which Orbit does not currently run. OCR the document locally first, or upload a searchable PDF or text file.
+
+## How Orbit works
+
+- Gemini creates a compact structured film plan.
+- The browser renders a recurring cast and animated props on Canvas.
+- Scenes include actions, expressions, movement, camera changes, labels, charts, counters, and speech bubbles.
+- Rendering is deterministic, so scrubbing remains stable.
+- The visual system is inspired by the [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) director method and styleboard.
+- Orbit includes the directing rules directly in its Gemini prompt; no separate skill package is required.
+
+## Configuration
+
+The `.env` file supports:
+
+```env
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
+GNANI_API_KEY=
+GNANI_TTS_MODEL=timbre-v2.5
+GNANI_TTS_VOICE=Nalini
+PORT=4173
+```
+
+`GEMINI_API_KEY` is used for film generation. `GNANI_API_KEY` is used only for narration. Orbit never uses the Gnani key to generate film plans.
+
+If port `4173` is already in use, Orbit tries the next available port. You can set `PORT` to choose a preferred starting port.
+
+## Keep your keys safe
+
+Never put an API key in `index.html`, commit `.env`, or share it publicly. The local server reads keys from `.env` and keeps them out of browser code.
+
+If a key is exposed, revoke it from the relevant provider dashboard and create a replacement.
